@@ -1,1 +1,0 @@
-- Jesús Alan Ramos Rodríguez \<<alan.ramos@jarsa.com>\>

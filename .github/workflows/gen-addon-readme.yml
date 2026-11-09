@@ -3,13 +3,13 @@ name: Generate addon README
 on:
   push:
     branches:
-      - "19.0"
+      - "20.0"
     paths:
       - "**/readme/**"
       - "**/__manifest__.py"
   pull_request:
     branches:
-      - "19.0*"
+      - "20.0*"
     paths:
       - "**/readme/**"
       - "**/__manifest__.py"
@@ -33,7 +33,7 @@ jobs:
         run: |
           oca-gen-addon-readme \
             --addons-dir=. \
-            --branch=19.0 \
+            --branch=20.0 \
             --org-name=amxodoo \
             --repo-name=enterprise \
             --keep-source-digest \

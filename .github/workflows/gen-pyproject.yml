@@ -5,13 +5,13 @@ name: Generate addon pyproject.toml
 on:
   push:
     branches:
-      - "19.0"
+      - "20.0"
     paths:
       - "**/__manifest__.py"
       - "**/pyproject.toml"
   pull_request:
     branches:
-      - "19.0*"
+      - "20.0*"
     paths:
       - "**/__manifest__.py"
       - "**/pyproject.toml"
