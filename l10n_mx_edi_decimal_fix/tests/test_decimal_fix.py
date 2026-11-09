@@ -339,7 +339,7 @@ class TestDecimalFix(TestDecimalFixCommon):
                 self.assertTrue(
                     docto_list, f"No DoctoRelacionado found ({rounding_method})"
                 )
-                base_dr_total = Decimal("0")
+                base_dr_total = Decimal(0)
                 for docto in docto_list:
                     equivalencia = Decimal(docto.get("EquivalenciaDR") or "1")
                     traslados_dr = docto.findall(
