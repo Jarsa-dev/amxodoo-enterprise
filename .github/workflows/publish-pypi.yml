@@ -1,0 +1,184 @@
+name: Publish to PyPI
+
+# On merge/push to a series branch: build and publish only addons changed in
+# that push. Manual dispatch can target specific addons or all of them.
+on:
+  push:
+    branches:
+      - "17.0"
+      - "18.0"
+      - "19.0"
+      - "20.0"
+  workflow_dispatch:
+    inputs:
+      addons:
+        description: >
+          Space-separated addon directories to publish. Leave empty to publish
+          all installable addons.
+        required: false
+        type: string
+        default: ""
+
+concurrency:
+  group: publish-pypi-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Install whool
+        run: pip install whool
+      - name: Generate missing pyproject.toml
+        # Same as the pre-commit hook `whool-init`: create addon pyproject.toml
+        # so publish works even when a new module was merged without one.
+        run: whool init
+      - name: Detect addons to publish
+        id: detect
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE_SHA: ${{ github.event.before }}
+          AFTER_SHA: ${{ github.sha }}
+          INPUT_ADDONS: ${{ inputs.addons }}
+        run: |
+          set -euo pipefail
+
+          is_addon() {
+            local dir="$1"
+            # whool init above ensures pyproject.toml exists for installable addons
+            [ -f "${dir}/__manifest__.py" ] && [ -f "${dir}/pyproject.toml" ]
+          }
+
+          list_all_addons() {
+            local d
+            for d in */; do
+              d="${d%/}"
+              if is_addon "${d}"; then
+                printf '%s\n' "${d}"
+              fi
+            done | sort -u
+          }
+
+          addons=""
+          if [ "${EVENT_NAME}" = "workflow_dispatch" ]; then
+            if [ -n "${INPUT_ADDONS// }" ]; then
+              # shellcheck disable=SC2086
+              for d in ${INPUT_ADDONS}; do
+                if is_addon "${d}"; then
+                  addons+="${d}"$'\n'
+                else
+                  echo "Skipping unknown/non-addon path: ${d}"
+                fi
+              done
+            else
+              addons="$(list_all_addons)"
+            fi
+          else
+            if [ -z "${BEFORE_SHA}" ] || [ "${BEFORE_SHA}" = "0000000000000000000000000000000000000000" ]; then
+              echo "No previous commit on branch; publishing all installable addons"
+              addons="$(list_all_addons)"
+            else
+              while IFS= read -r path; do
+                [ -z "${path}" ] && continue
+                top="${path%%/*}"
+                if [ "${top}" != "${path}" ] && is_addon "${top}"; then
+                  addons+="${top}"$'\n'
+                fi
+              done < <(git diff --name-only "${BEFORE_SHA}" "${AFTER_SHA}")
+              addons="$(printf '%s' "${addons}" | sort -u)"
+            fi
+          fi
+
+          addons="$(printf '%s\n' "${addons}" | sed '/^$/d')"
+          if [ -z "${addons}" ]; then
+            echo "No addon directories changed; nothing to publish."
+            echo "has_addons=false" >> "${GITHUB_OUTPUT}"
+            echo "addons=" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          echo "Addons to publish:"
+          printf '%s\n' "${addons}"
+          {
+            echo "has_addons=true"
+            echo "addons<<EOF"
+            printf '%s\n' "${addons}"
+            echo "EOF"
+          } >> "${GITHUB_OUTPUT}"
+      - name: Install build tools
+        if: steps.detect.outputs.has_addons == 'true'
+        run: pip install build twine
+      - name: Build wheels for changed addons
+        if: steps.detect.outputs.has_addons == 'true'
+        env:
+          ADDONS: ${{ steps.detect.outputs.addons }}
+        run: |
+          set -euo pipefail
+          while IFS= read -r addon; do
+            [ -z "${addon}" ] && continue
+            echo "Building ${addon}"
+            (cd "${addon}" && python -m build --outdir dist)
+          done <<< "${ADDONS}"
+      - name: Publish to PyPI
+        if: steps.detect.outputs.has_addons == 'true'
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+          ADDONS: ${{ steps.detect.outputs.addons }}
+          # PyPI rate-limits burst uploads; space requests and retry 429s.
+          UPLOAD_DELAY_SECONDS: "15"
+          UPLOAD_MAX_ATTEMPTS: "5"
+        run: |
+          set -euo pipefail
+          if [ -z "${TWINE_PASSWORD:-}" ]; then
+            echo "Missing repository secret PYPI_API_TOKEN"
+            exit 1
+          fi
+          shopt -s nullglob
+          wheels=()
+          while IFS= read -r addon; do
+            [ -z "${addon}" ] && continue
+            for wheel in "${addon}"/dist/*.whl; do
+              wheels+=("${wheel}")
+            done
+          done <<< "${ADDONS}"
+          if [ "${#wheels[@]}" -eq 0 ]; then
+            echo "No wheels were built"
+            exit 1
+          fi
+          for wheel in "${wheels[@]}"; do
+            echo "Uploading ${wheel}"
+            attempt=1
+            while true; do
+              set +e
+              output="$(python -m twine upload --skip-existing "${wheel}" 2>&1)"
+              status=$?
+              set -e
+              printf '%s\n' "${output}"
+              if [ "${status}" -eq 0 ]; then
+                break
+              fi
+              if printf '%s\n' "${output}" | grep -Eqi '429|Too Many Requests'; then
+                if [ "${attempt}" -ge "${UPLOAD_MAX_ATTEMPTS}" ]; then
+                  echo "Gave up uploading ${wheel} after ${attempt} attempts"
+                  exit 1
+                fi
+                sleep_for=$((UPLOAD_DELAY_SECONDS * attempt))
+                echo "Rate limited; sleeping ${sleep_for}s before retry ${attempt}/${UPLOAD_MAX_ATTEMPTS}"
+                sleep "${sleep_for}"
+                attempt=$((attempt + 1))
+                continue
+              fi
+              echo "Upload failed for ${wheel}"
+              exit "${status}"
+            done
+            sleep "${UPLOAD_DELAY_SECONDS}"
+          done

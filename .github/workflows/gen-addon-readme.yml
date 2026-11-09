@@ -1,0 +1,55 @@
+name: Generate addon README
+
+on:
+  push:
+    branches:
+      - "20.0"
+    paths:
+      - "**/readme/**"
+      - "**/__manifest__.py"
+  pull_request:
+    branches:
+      - "20.0*"
+    paths:
+      - "**/readme/**"
+      - "**/__manifest__.py"
+  workflow_dispatch:
+
+jobs:
+  gen-addon-readme:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          # Needed so the auto-commit step can push to PR branches from forks
+          # only when running with sufficient permissions on the same repo.
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Install maintainer tools
+        run: pip install "oca-maintainers-tools @ git+https://github.com/OCA/maintainer-tools.git"
+      - name: Generate addon README.rst from fragments
+        run: |
+          oca-gen-addon-readme \
+            --addons-dir=. \
+            --branch=20.0 \
+            --org-name=amxodoo \
+            --repo-name=enterprise \
+            --keep-source-digest \
+            --convert-fragments-to-markdown
+      - name: Check generated README on pull requests
+        if: github.event_name == 'pull_request'
+        run: |
+          if [ -n "$(git status --porcelain '*/README.rst')" ]; then
+            echo "README.rst is out of date. Commit the generated files:"
+            git status --porcelain '*/README.rst'
+            git --no-pager diff -- '*/README.rst'
+            exit 1
+          fi
+      - name: Commit and push updated README.rst
+        if: github.event_name != 'pull_request'
+        uses: stefanzweifel/git-auto-commit-action@v7
+        with:
+          commit_message: "[BOT] Update addon README.rst from fragments"
+          file_pattern: "*/README.rst"

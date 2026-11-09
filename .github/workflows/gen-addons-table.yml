@@ -1,0 +1,46 @@
+name: Generate addons table
+
+on:
+  push:
+    branches:
+      - "20.0"
+    paths:
+      - "**/__manifest__.py"
+      - "README.md"
+  pull_request:
+    branches:
+      - "20.0*"
+    paths:
+      - "**/__manifest__.py"
+      - "README.md"
+  workflow_dispatch:
+
+jobs:
+  gen-addons-table:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Install maintainer tools
+        run: pip install "oca-maintainers-tools @ git+https://github.com/OCA/maintainer-tools.git"
+      - name: Generate addons table in README.md
+        run: oca-gen-addons-table
+      - name: Check generated table on pull requests
+        if: github.event_name == 'pull_request'
+        run: |
+          if [ -n "$(git status --porcelain README.md)" ]; then
+            echo "README.md addons table is out of date. Commit the generated file:"
+            git status --porcelain README.md
+            git --no-pager diff -- README.md
+            exit 1
+          fi
+      - name: Commit and push updated README.md
+        if: github.event_name != 'pull_request'
+        uses: stefanzweifel/git-auto-commit-action@v7
+        with:
+          commit_message: "[BOT] Update addons table in README.md"
+          file_pattern: README.md
