@@ -1,160 +1,17 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <odoo>
+    <!-- The amounts are computed in _l10n_mx_edi_add_payment_cfdi_values: print
+         them with the SAT decimals even when the currency is configured with
+         more. The Totales already use mxn_digits. -->
     <template id="payment20_precision2" inherit_id="l10n_mx_edi.payment20">
-        <!-- Totales -->
-        <xpath
-            expr="//*[local-name()='Totales' and namespace-uri()='http://www.sat.gob.mx/Pagos20']"
-            position="attributes"
-        >
-            <attribute name="t-att-TotalTrasladosBaseIVA0">
-                format_float(
-                    float(format_float(
-                        sum(
-                            traslado['base'] / (docto['equivalencia'] or 1) if traslado['tasa_o_cuota'] == 0 and traslado['tipo_factor'] == 'Tasa' else 0
-                            for docto in docto_relationado_list
-                            for traslado in docto['traslados_list']
-                        ),
-                        precision=6
-                    )) * (tipo_cambio or 1),
-                    precision=2
-                ) if sum(
-                    traslado['base'] / (docto['equivalencia'] or 1) if traslado['tasa_o_cuota'] == 0 and traslado['tipo_factor'] == 'Tasa' else 0
-                    for docto in docto_relationado_list
-                    for traslado in docto['traslados_list']
-                ) &gt; 0 else False
-            </attribute>
-            <attribute name="t-att-TotalTrasladosImpuestoIVA0">
-                '0' if sum(
-                    traslado['base'] / (docto['equivalencia'] or 1) if traslado['tasa_o_cuota'] == 0 and traslado['tipo_factor'] == 'Tasa' else 0
-                    for docto in docto_relationado_list
-                    for traslado in docto['traslados_list']
-                ) &gt; 0 else False
-            </attribute>
-            <attribute name="t-att-TotalTrasladosBaseIVAExento">
-                format_float(
-                    float(format_float(
-                        sum(
-                            traslado['base'] / (docto['equivalencia'] or 1) if traslado['tasa_o_cuota'] == 0 and traslado['tipo_factor'] == 'Exento' else 0
-                            for docto in docto_relationado_list
-                            for traslado in docto['traslados_list']
-                        ),
-                        precision=6
-                    )) * (tipo_cambio or 1),
-                    precision=2
-                ) if sum(
-                    traslado['base'] / (docto['equivalencia'] or 1) if traslado['tasa_o_cuota'] == 0 and traslado['tipo_factor'] == 'Exento' else 0
-                    for docto in docto_relationado_list
-                    for traslado in docto['traslados_list']
-                ) &gt; 0 else False
-            </attribute>
-            <attribute name="t-att-TotalTrasladosBaseIVA8">
-                format_float(
-                    float(format_float(
-                        sum(
-                            traslado['base'] / (docto['equivalencia'] or 1) if traslado['tasa_o_cuota'] == 0.08 else 0
-                            for docto in docto_relationado_list
-                            for traslado in docto['traslados_list']
-                        ),
-                        precision=6
-                    )) * (tipo_cambio or 1),
-                    precision=2
-                ) if sum(
-                    traslado['base'] / (docto['equivalencia'] or 1) if traslado['tasa_o_cuota'] == 0.08 else 0
-                    for docto in docto_relationado_list
-                    for traslado in docto['traslados_list']
-                ) &gt; 0 else False
-            </attribute>
-            <attribute name="t-att-TotalTrasladosImpuestoIVA8">
-                format_float(
-                    float(format_float(
-                        sum(
-                            traslado['importe'] / (docto['equivalencia'] or 1) if traslado['tasa_o_cuota'] == 0.08 else 0
-                            for docto in docto_relationado_list
-                            for traslado in docto['traslados_list']
-                        ),
-                        precision=6
-                    )) * (tipo_cambio or 1),
-                    precision=2
-                ) if sum(
-                    traslado['importe'] / (docto['equivalencia'] or 1) if traslado['tasa_o_cuota'] == 0.08 else 0
-                    for docto in docto_relationado_list
-                    for traslado in docto['traslados_list']
-                ) &gt; 0 else False
-            </attribute>
-            <attribute name="t-att-TotalTrasladosBaseIVA16">
-                format_float(
-                    float(format_float(
-                        sum(
-                            traslado['base'] / (docto['equivalencia'] or 1) if traslado['tasa_o_cuota'] == 0.16 else 0
-                            for docto in docto_relationado_list
-                            for traslado in docto['traslados_list']
-                        ),
-                        precision=6
-                    )) * (tipo_cambio or 1),
-                    precision=2
-                ) if sum(
-                    traslado['base'] / (docto['equivalencia'] or 1) if traslado['tasa_o_cuota'] == 0.16 else 0
-                    for docto in docto_relationado_list
-                    for traslado in docto['traslados_list']
-                ) &gt; 0 else False
-            </attribute>
-            <attribute name="t-att-TotalTrasladosImpuestoIVA16">
-                format_float(
-                    float(format_float(
-                        sum(
-                            traslado['importe'] / (docto['equivalencia'] or 1) if traslado['tasa_o_cuota'] == 0.16 else 0
-                            for docto in docto_relationado_list
-                            for traslado in docto['traslados_list']
-                        ),
-                        precision=6
-                    )) * (tipo_cambio or 1),
-                    precision=2
-                ) if sum(
-                    traslado['importe'] / (docto['equivalencia'] or 1) if traslado['tasa_o_cuota'] == 0.16 else 0
-                    for docto in docto_relationado_list
-                    for traslado in docto['traslados_list']
-                ) &gt; 0 else False
-            </attribute>
-            <attribute
-                name="t-att-TotalRetencionesISR"
-            >format_float(total_retenciones_isr, precision=2)</attribute>
-            <attribute
-                name="t-att-TotalRetencionesIVA"
-            >format_float(total_retenciones_iva, precision=2)</attribute>
-            <attribute
-                name="t-att-TotalRetencionesIEPS"
-            >format_float(total_retenciones_ieps, precision=2)</attribute>
-            <attribute name="t-att-MontoTotalPagos">
-                format_float(
-                    float(format_float(
-                        sum(
-                            float(format_float(docto['imp_pagado'], precision=2)) if docto['moneda'] == moneda else float(format_float(docto['imp_pagado'], precision=2)) / (docto['equivalencia'] or 1)
-                            for docto in docto_relationado_list
-                        ),
-                        precision=2
-                    )) * (tipo_cambio or 1),
-                    precision=2
-                )
-            </attribute>
-        </xpath>
-
         <!-- Pago -->
         <xpath
             expr="//*[local-name()='Pago' and namespace-uri()='http://www.sat.gob.mx/Pagos20']"
             position="attributes"
         >
-            <!-- Round each imp_pagado to 2 decimals BEFORE summing so Monto matches
-                 the sum of the ImpPagado values reported per DoctoRelacionado
-                 (rounding the raw 6-decimal sum can fall 1 cent short: CRP20217) -->
-            <attribute name="t-att-Monto">
-                format_float(
-                    sum(
-                        float(format_float(docto['imp_pagado'], precision=2)) if docto['moneda'] == moneda else float(format_float(docto['imp_pagado'], precision=2)) / (docto['equivalencia'] or 1)
-                        for docto in docto_relationado_list
-                    ),
-                    precision=2
-                )
-            </attribute>
+            <attribute
+                name="t-att-Monto"
+            >format_float(payment['monto'], precision=2)</attribute>
         </xpath>
 
         <!-- DoctoRelacionado -->
@@ -168,14 +25,12 @@
             <attribute
                 name="t-att-ImpPagado"
             >invoice_values['format_float'](invoice_values['imp_pagado'], precision=2)</attribute>
-            <attribute name="t-att-ImpSaldoInsoluto">invoice_values['format_float'](
-                abs(invoice_values['imp_saldo_insoluto']), precision=2
-            )</attribute>
+            <attribute
+                name="t-att-ImpSaldoInsoluto"
+            >invoice_values['format_float'](invoice_values['imp_saldo_insoluto'], precision=2)</attribute>
         </xpath>
 
-        <!-- RetencionDR / TrasladoDR: amounts are already rounded to 2 decimals in
-             _l10n_mx_edi_add_payment_cfdi_values; print them as such even when
-             the currency is configured with more decimals. -->
+        <!-- RetencionDR / TrasladoDR -->
         <xpath
             expr="//*[local-name()='RetencionDR' and namespace-uri()='http://www.sat.gob.mx/Pagos20']"
             position="attributes"
@@ -214,37 +69,16 @@
                 name="t-att-ImporteP"
             >format_float(tax_values['importe'], precision=6, min_precision=2)</attribute>
         </xpath>
-
         <xpath
             expr="//*[local-name()='TrasladoP' and namespace-uri()='http://www.sat.gob.mx/Pagos20']"
             position="attributes"
         >
-            <attribute name="t-att-BaseP">
-                format_float(
-                    sum(
-                        traslado['base'] / (docto['equivalencia'] or 1)
-                        for docto in docto_relationado_list
-                        for traslado in docto['traslados_list']
-                        if traslado['impuesto'] == tax_values['impuesto']
-                        and traslado['tipo_factor'] == tax_values['tipo_factor']
-                        and traslado['tasa_o_cuota'] == tax_values['tasa_o_cuota']
-                    ),
-                    precision=6, min_precision=2
-                )
-            </attribute>
-            <attribute name="t-att-ImporteP">
-                None if tax_values['importe'] is None else format_float(
-                    sum(
-                        traslado['importe'] / (docto['equivalencia'] or 1)
-                        for docto in docto_relationado_list
-                        for traslado in docto['traslados_list']
-                        if traslado['impuesto'] == tax_values['impuesto']
-                        and traslado['tipo_factor'] == tax_values['tipo_factor']
-                        and traslado['tasa_o_cuota'] == tax_values['tasa_o_cuota']
-                    ),
-                    precision=6, min_precision=2
-                )
-            </attribute>
+            <attribute
+                name="t-att-BaseP"
+            >format_float(tax_values['base'], precision=6, min_precision=2)</attribute>
+            <attribute
+                name="t-att-ImporteP"
+            >format_float(tax_values['importe'], precision=6, min_precision=2)</attribute>
         </xpath>
     </template>
 </odoo>
