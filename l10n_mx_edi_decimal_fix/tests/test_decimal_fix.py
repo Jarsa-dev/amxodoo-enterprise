@@ -16,16 +16,10 @@ class TestDecimalFix(TestDecimalFixCommon):
     2 decimal places.
 
     Main case: qty=0.5, price_unit=83506.23 with MXN configured at 6 decimal places.
-    The raw multiplication gives 41753.115 whose float representation may be slightly
-    below the exact value.  float_round(..., precision_digits=2) would then produce
-    41753.11 instead of the correct ROUND_HALF_UP result of 41753.12, causing the PAC
-    to reject the CFDI due to arithmetic inconsistency.
-
-    With round_globally, _get_post_fix_tax_amounts_map uses float_round to compute
-    new_base_amount, which can shift the base by ±1 unit at 6dp (e.g. 41753.115 →
-    41753.114).  That delta propagates to cfdi_line_values['importe'] and then to
-    cfdi_values['subtotal'], breaking the 2dp rounding.  The fix overrides
-    _get_post_fix_tax_amounts_map to use Decimal ROUND_HALF_UP throughout.
+    The CFDI amounts keep the 6 decimals of the currency (SubTotal="41753.115000")
+    and the PAC rejects them: they must be rounded HALF-UP to the 2 decimals the
+    SAT supports for the currency (41753.12), and the totals built from the
+    rounded amounts.
     """
 
     # -------------------------------------------------------------------------
@@ -76,7 +70,7 @@ class TestDecimalFix(TestDecimalFixCommon):
 
         def run(rounding_method):
             with self.mx_external_setup(self.frozen_today):
-                invoice = self._create_invoice(
+                invoice = self._create_invoice_mx(
                     currency_id=self.mxn_currency.id,
                     invoice_line_ids=[
                         Command.create(
@@ -122,7 +116,7 @@ class TestDecimalFix(TestDecimalFixCommon):
 
         def run(rounding_method):
             with self.mx_external_setup(self.frozen_today):
-                invoice = self._create_invoice(
+                invoice = self._create_invoice_mx(
                     currency_id=self.mxn_currency.id,
                     invoice_line_ids=[
                         Command.create(
@@ -141,7 +135,7 @@ class TestDecimalFix(TestDecimalFixCommon):
                 invoice_doc = self._get_invoice_document(invoice)
                 self.assertTrue(invoice_doc)
 
-                payment = self._create_payment(invoice)
+                payment = self._register_payment(invoice)
                 with self.with_mocked_pac_sign_success():
                     payment.move_id._l10n_mx_edi_cfdi_payment_try_send()
 
@@ -186,11 +180,11 @@ class TestDecimalFix(TestDecimalFixCommon):
         Tested for both round_per_line and round_globally.
         """
         rate = 1.0 / 17.0  # 1 USD = 17 MXN
-        self.setup_rates(self.usd_currency, (self.frozen_today, rate))
+        self.setup_other_currency("USD", rates=[(self.frozen_today, rate)])
 
         def run(rounding_method):
             with self.mx_external_setup(self.frozen_today):
-                invoice = self._create_invoice(
+                invoice = self._create_invoice_mx(
                     currency_id=self.usd_currency.id,
                     invoice_line_ids=[
                         Command.create(
@@ -219,7 +213,7 @@ class TestDecimalFix(TestDecimalFixCommon):
                 )
 
             with self.mx_external_setup(self.frozen_today):
-                payment = self._create_payment(
+                payment = self._register_payment(
                     invoice,
                     currency_id=self.mxn_currency.id,
                 )
@@ -248,7 +242,7 @@ class TestDecimalFix(TestDecimalFixCommon):
 
         def run(_rounding_method):
             with self.mx_external_setup(self.frozen_today):
-                invoice = self._create_invoice(
+                invoice = self._create_invoice_mx(
                     currency_id=self.mxn_currency.id,
                     invoice_line_ids=[
                         Command.create(
@@ -299,11 +293,11 @@ class TestDecimalFix(TestDecimalFixCommon):
         Tested for both round_per_line and round_globally.
         """
         rate = 1.0 / 17.0
-        self.setup_rates(self.usd_currency, (self.frozen_today, rate))
+        self.setup_other_currency("USD", rates=[(self.frozen_today, rate)])
 
         def run(rounding_method):
             with self.mx_external_setup(self.frozen_today):
-                invoice = self._create_invoice(
+                invoice = self._create_invoice_mx(
                     currency_id=self.usd_currency.id,
                     invoice_line_ids=[
                         Command.create(
@@ -319,7 +313,7 @@ class TestDecimalFix(TestDecimalFixCommon):
                 with self.with_mocked_pac_sign_success():
                     invoice._l10n_mx_edi_cfdi_invoice_try_send()
 
-                payment = self._create_payment(
+                payment = self._register_payment(
                     invoice, currency_id=self.usd_currency.id
                 )
                 with self.with_mocked_pac_sign_success():
@@ -424,11 +418,11 @@ class TestDecimalFix(TestDecimalFixCommon):
         BaseP/ImporteP must be printed with the 2 decimals MonedaP supports.
         """
         rate = 1.0 / 16.9237
-        self.setup_rates(self.usd_currency, (self.frozen_today, rate))
+        self.setup_other_currency("USD", rates=[(self.frozen_today, rate)])
 
         def run(rounding_method):
             with self.mx_external_setup(self.frozen_today):
-                usd_invoice = self._create_invoice(
+                usd_invoice = self._create_invoice_mx(
                     currency_id=self.usd_currency.id,
                     invoice_line_ids=[
                         Command.create(
@@ -441,7 +435,7 @@ class TestDecimalFix(TestDecimalFixCommon):
                         ),
                     ],
                 )
-                mxn_invoice = self._create_invoice(
+                mxn_invoice = self._create_invoice_mx(
                     currency_id=self.mxn_currency.id,
                     invoice_line_ids=[
                         Command.create(
@@ -458,10 +452,10 @@ class TestDecimalFix(TestDecimalFixCommon):
                     usd_invoice._l10n_mx_edi_cfdi_invoice_try_send()
                     mxn_invoice._l10n_mx_edi_cfdi_invoice_try_send()
 
-                usd_payment = self._create_payment(
+                usd_payment = self._register_payment(
                     usd_invoice, currency_id=self.usd_currency.id
                 )
-                mxn_payment = self._create_payment(mxn_invoice, amount=88160.0)
+                mxn_payment = self._register_payment(mxn_invoice, amount=88160.0)
                 with self.with_mocked_pac_sign_success():
                     usd_payment.move_id._l10n_mx_edi_cfdi_payment_try_send()
                     mxn_payment.move_id._l10n_mx_edi_cfdi_payment_try_send()
@@ -494,7 +488,7 @@ class TestDecimalFix(TestDecimalFixCommon):
     # sum(qty * price) = 22966.725000 → ROUND_UP/ROUND_HALF_UP at 2dp = 22966.73
     # Without the fix, float arithmetic may yield 22966.72 (banker's rounding /
     # float underrepresentation of the .725 boundary).
-    _FCC_C06574_LINES = [
+    _FCC_C06574_LINES = (
         (3.9, 279.28),  # PUR6004BU-FE:              1089.192
         (0.9, 430.87),  # PUO6C04BL-CEG:              387.783
         (0.3, 176.84),  # SP688-C:                     53.052
@@ -519,7 +513,7 @@ class TestDecimalFix(TestDecimalFixCommon):
         (0.3, 1929.50),  # 8095:                       578.850
         (13.5, 62.71),  # SP Cont Security:           846.585
         (0.3, 1513.62),  # MT RENTA DE PLATAFORMA:     454.086
-    ]
+    )
 
     def _assert_subtotal_equals_sum_of_conceptos(self, cfdi, rounding_method):
         """
@@ -569,11 +563,11 @@ class TestDecimalFix(TestDecimalFixCommon):
         With the fix, SubTotal = 22966.73 (HALF-UP of the internal value).
         """
         rate = 1.0 / 17.3323
-        self.setup_rates(self.usd_currency, (self.frozen_today, rate))
+        self.setup_other_currency("USD", rates=[(self.frozen_today, rate)])
 
         def run(rounding_method):
             with self.mx_external_setup(self.frozen_today):
-                invoice = self._create_invoice(
+                invoice = self._create_invoice_mx(
                     currency_id=self.usd_currency.id,
                     invoice_line_ids=[
                         Command.create(
@@ -624,11 +618,11 @@ class TestDecimalFix(TestDecimalFixCommon):
         rounding via format_float.
         """
         rate = 1.0 / 17.3323
-        self.setup_rates(self.usd_currency, (self.frozen_today, rate))
+        self.setup_other_currency("USD", rates=[(self.frozen_today, rate)])
 
         def run(rounding_method):
             with self.mx_external_setup(self.frozen_today):
-                invoice = self._create_invoice(
+                invoice = self._create_invoice_mx(
                     move_type="out_refund",
                     currency_id=self.usd_currency.id,
                     invoice_line_ids=[
@@ -712,11 +706,11 @@ class TestDecimalFix(TestDecimalFixCommon):
     # SubTotal=8258.60, TotalImpuestos=1321.38, Total=9579.98
     # -------------------------------------------------------------------------
 
-    _FCJ_A08414_LINES = [
+    _FCJ_A08414_LINES = (
         (1.0, 5957.70),  # Office network node max height 3m:  5957.70
         (7.0, 135.90),  # Infrastructure supply conduit:       951.30
         (1.0, 1349.60),  # Professional services:              1349.60
-    ]
+    )
 
     def test_total_arithmetic_consistency_mxn_3lines(self):
         """
@@ -729,7 +723,7 @@ class TestDecimalFix(TestDecimalFixCommon):
 
         def run(rounding_method):
             with self.mx_external_setup(self.frozen_today):
-                invoice = self._create_invoice(
+                invoice = self._create_invoice_mx(
                     currency_id=self.mxn_currency.id,
                     invoice_line_ids=[
                         Command.create(
@@ -767,7 +761,7 @@ class TestDecimalFix(TestDecimalFixCommon):
     # SubTotal=86715.70, TotalImpuestos=13874.51, Total=100590.21
     # -------------------------------------------------------------------------
 
-    _FCJ_A08415_LINES = [
+    _FCJ_A08415_LINES = (
         (7.0, 3702.88),  # Category 6 plenum cable:            25920.16
         (7.0, 251.30),  # RJ45 Cat6 jack:                      1759.10
         (7.0, 46.30),  # Face plate 2/4 ports:                  324.10
@@ -787,7 +781,7 @@ class TestDecimalFix(TestDecimalFixCommon):
         (24.0, 331.00),  # Flexible conduit 2":                 7944.00
         (1.0, 10335.00),  # Infrastructure implementation:      10335.00
         (1.0, 6809.00),  # Professional services:               6809.00
-    ]
+    )
 
     def test_total_arithmetic_consistency_mxn_19lines(self):
         """
@@ -800,7 +794,7 @@ class TestDecimalFix(TestDecimalFixCommon):
 
         def run(rounding_method):
             with self.mx_external_setup(self.frozen_today):
-                invoice = self._create_invoice(
+                invoice = self._create_invoice_mx(
                     currency_id=self.mxn_currency.id,
                     invoice_line_ids=[
                         Command.create(
@@ -847,12 +841,12 @@ class TestDecimalFix(TestDecimalFixCommon):
     # SubTotal=7150.10, TotalImpuestos=1144.02, Total=8294.12
     # -------------------------------------------------------------------------
 
-    _FCG_G10028403_LINES = [
+    _FCG_G10028403_LINES = (
         (1.0, 5074.09),  # SP IFI Security cameras:    5074.09
         (1.0, 948.53),  # Genetec update:               948.53
         (1.0, 1064.98),  # Security Center license:     1064.98
         (1.0, 62.50),  # Genetec SDK connection:        62.50
-    ]
+    )
 
     def test_total_arithmetic_consistency_usd_tipocambio(self):
         """
@@ -863,11 +857,11 @@ class TestDecimalFix(TestDecimalFixCommon):
         Validates arithmetic consistency of the CFDI in foreign currency.
         """
         rate = 1.0 / 18.439991
-        self.setup_rates(self.usd_currency, (self.frozen_today, rate))
+        self.setup_other_currency("USD", rates=[(self.frozen_today, rate)])
 
         def run(rounding_method):
             with self.mx_external_setup(self.frozen_today):
-                invoice = self._create_invoice(
+                invoice = self._create_invoice_mx(
                     currency_id=self.usd_currency.id,
                     invoice_line_ids=[
                         Command.create(
@@ -919,7 +913,7 @@ class TestDecimalFix(TestDecimalFixCommon):
             with self.mx_external_setup(self.frozen_today):
                 invoices = self.env["account.move"]
                 for price_unit in (823083.16, 29246.16, 22040.00):
-                    invoices |= self._create_invoice(
+                    invoices |= self._create_invoice_mx(
                         currency_id=self.mxn_currency.id,
                         invoice_line_ids=[
                             Command.create(
@@ -936,7 +930,7 @@ class TestDecimalFix(TestDecimalFixCommon):
                     for invoice in invoices:
                         invoice._l10n_mx_edi_cfdi_invoice_try_send()
 
-                payment = self._create_payment(invoices)
+                payment = self._register_payment(invoices)
                 with self.with_mocked_pac_sign_success():
                     payment.move_id._l10n_mx_edi_cfdi_payment_try_send()
 
@@ -985,13 +979,18 @@ class TestDecimalFix(TestDecimalFixCommon):
 
     def _assert_traslados_dr_within_sat_limits(self, pay_cfdi, rounding_method):
         """CRP20261: trunc(BaseDR * Tasa) <= ImporteDR <= ceil(BaseDR * Tasa),
-        at the decimals of MonedaDR, and BaseDR + ImporteDR == ImpPagado."""
+        at the decimals of MonedaDR, and ImpSaldoInsoluto == ImpSaldoAnt -
+        ImpPagado."""
         ns_pago = "http://www.sat.gob.mx/Pagos20"
         doctos = pay_cfdi.findall(f".//{{{ns_pago}}}DoctoRelacionado")
         self.assertTrue(doctos, f"No DoctoRelacionado found ({rounding_method})")
         for docto in doctos:
             unit = Decimal("0.01")
-            paid = Decimal(0)
+            self.assertEqual(
+                Decimal(docto.get("ImpSaldoInsoluto")),
+                Decimal(docto.get("ImpSaldoAnt")) - Decimal(docto.get("ImpPagado")),
+                f"ImpSaldoInsoluto != ImpSaldoAnt - ImpPagado ({rounding_method})",
+            )
             for tdr in docto.findall(f".//{{{ns_pago}}}TrasladoDR"):
                 base = Decimal(tdr.get("BaseDR"))
                 importe = Decimal(tdr.get("ImporteDR"))
@@ -1003,19 +1002,13 @@ class TestDecimalFix(TestDecimalFixCommon):
                     f"CRP20261: ImporteDR={importe} outside [{lower}, {upper}] "
                     f"for BaseDR={base} ({rounding_method})",
                 )
-                paid += base + importe
-            self.assertEqual(
-                paid,
-                Decimal(docto.get("ImpPagado")),
-                f"BaseDR + ImporteDR must equal ImpPagado ({rounding_method})",
-            )
 
     def test_traslado_dr_currency_decimals(self):
         self._set_currency_2dp(self.mxn_currency)
 
         def run(rounding_method):
             with self.mx_external_setup(self.frozen_today):
-                invoice = self._create_invoice(
+                invoice = self._create_invoice_mx(
                     currency_id=self.mxn_currency.id,
                     invoice_line_ids=[
                         Command.create(
@@ -1030,7 +1023,7 @@ class TestDecimalFix(TestDecimalFixCommon):
                 )
                 with self.with_mocked_pac_sign_success():
                     invoice._l10n_mx_edi_cfdi_invoice_try_send()
-                payment = self._create_payment(invoice)
+                payment = self._register_payment(invoice)
                 with self.with_mocked_pac_sign_success():
                     payment.move_id._l10n_mx_edi_cfdi_payment_try_send()
 
@@ -1050,19 +1043,19 @@ class TestDecimalFix(TestDecimalFixCommon):
     # -------------------------------------------------------------------------
     # Case 9: CRP20261 — 2dp currency, round_per_line (Real, BAF/2026/09/0489,
     # reproduced in staging with BAF/2026/09/0204 / F40280). The per-line taxes
-    # sum to 1074.94 while 6718.30 * 0.16 = 1074.928, so the payment post-fix
-    # recomputes the base from the paid total: 7793.24 / 1.16 = 6718.3103.
-    # Rounding that base UP gave BaseDR=6718.32 / ImporteDR=1074.92, below the
-    # lower limit trunc(6718.32 * 0.16) = 1074.93. HALF-UP gives 6718.31 /
-    # 1074.93, inside [1074.92, 1074.93].
+    # sum to 1074.94 while 6718.30 * 0.16 = 1074.928. In 17.0 the payment
+    # post-fix recomputed the base from the paid total (7793.24 / 1.16), and
+    # rounding it UP put ImporteDR below the lower limit. Since 18.0 the DR taxes
+    # come from the unrounded base * rate: BaseDR=6718.30 / ImporteDR=1074.93,
+    # inside [1074.92, 1074.93].
     # -------------------------------------------------------------------------
 
-    def test_traslado_dr_post_fix_half_up_2dp(self):
+    def test_traslado_dr_per_line_taxes_2dp(self):
         self._set_currency_2dp(self.mxn_currency)
 
         def run(rounding_method):
             with self.mx_external_setup(self.frozen_today):
-                invoice = self._create_invoice(
+                invoice = self._create_invoice_mx(
                     currency_id=self.mxn_currency.id,
                     invoice_line_ids=[
                         Command.create(
@@ -1083,7 +1076,7 @@ class TestDecimalFix(TestDecimalFixCommon):
                 )
                 with self.with_mocked_pac_sign_success():
                     invoice._l10n_mx_edi_cfdi_invoice_try_send()
-                payment = self._create_payment(invoice)
+                payment = self._register_payment(invoice)
                 with self.with_mocked_pac_sign_success():
                     payment.move_id._l10n_mx_edi_cfdi_payment_try_send()
 
@@ -1097,56 +1090,10 @@ class TestDecimalFix(TestDecimalFixCommon):
                     self.assertEqual(invoice.amount_total, 7793.24)
                     ns_pago = "http://www.sat.gob.mx/Pagos20"
                     tdr = pay_cfdi.find(f".//{{{ns_pago}}}TrasladoDR")
-                    self.assertEqual(tdr.get("BaseDR"), "6718.31")
+                    self.assertEqual(tdr.get("BaseDR"), "6718.30")
                     self.assertEqual(tdr.get("ImporteDR"), "1074.93")
 
         self._test_cfdi_rounding(run)
-
-    def test_post_fix_tax_amounts_within_sat_limits(self):
-        """_get_post_fix_tax_amounts_map must keep base + importe and return an
-        importe inside [trunc(base * rate), ceil(base * rate)] at 2dp and 6dp."""
-        document = self.env["l10n_mx_edi.document"]
-        rate = 0.16
-        cases = [
-            # Real staging: F40280 (BAF/2026/09/0204) and the paid totals of
-            # BAF/2026/09/0060, BAF/2026/09/0291 and BAF/2026/01/0696.
-            (6718.30, 1074.94, 2),
-            (17566.00, 2810.55, 2),
-            (118133.19, 18901.30, 2),
-            (9413.63, 1506.17, 2),
-        ]
-        for dp in (2, 6):
-            unit = 10**-dp
-            for i in range(400):
-                base = float_round(1000.0 + i * 0.7 * unit, dp)
-                for drift in (-2, -1, 0, 1, 2):
-                    cases.append(
-                        (base, float_round(base * rate + drift * unit, dp), dp)
-                    )
-        for base, importe, dp in cases:
-            with self.subTest(base=base, importe=importe, dp=dp):
-                res = document._get_post_fix_tax_amounts_map(base, importe, rate, dp)
-                unit = Decimal(1).scaleb(-dp)
-                new_base = Decimal(f"{res['new_base_amount']:.{dp}f}")
-                new_tax = Decimal(f"{res['new_tax_amount']:.{dp}f}")
-                expected = new_base * Decimal(str(rate))
-                self.assertTrue(
-                    expected.quantize(unit, ROUND_DOWN)
-                    <= new_tax
-                    <= expected.quantize(unit, ROUND_UP),
-                    f"CRP20261: {new_tax} outside limits of {new_base} * {rate}",
-                )
-                self.assertEqual(
-                    new_base + new_tax,
-                    Decimal(f"{base:.{dp}f}") + Decimal(f"{importe:.{dp}f}"),
-                    "base + importe must be preserved",
-                )
-                self.assertAlmostEqual(
-                    res["delta_base_amount"], res["new_base_amount"] - base
-                )
-                self.assertAlmostEqual(
-                    res["delta_tax_amount"], res["new_tax_amount"] - importe
-                )
 
     # -------------------------------------------------------------------------
     # Case 11: CRP20274 / CRP20268 — 6dp currency (MTNMX, BDCJ3/2026/00288,
@@ -1157,7 +1104,7 @@ class TestDecimalFix(TestDecimalFixCommon):
 
     def test_traslado_dr_2dp_with_6dp_currency(self):
         rate = 1.0 / 16.9707
-        self.setup_rates(self.usd_currency, (self.frozen_today, rate))
+        self.setup_other_currency("USD", rates=[(self.frozen_today, rate)])
         cases = [
             (1131.55, "1131.55", "181.05"),
             (233.33, "233.33", "37.33"),
@@ -1167,7 +1114,7 @@ class TestDecimalFix(TestDecimalFixCommon):
         def run(rounding_method):
             with self.mx_external_setup(self.frozen_today):
                 for price_unit, base, importe in cases:
-                    invoice = self._create_invoice(
+                    invoice = self._create_invoice_mx(
                         currency_id=self.usd_currency.id,
                         invoice_line_ids=[
                             Command.create(
@@ -1182,7 +1129,7 @@ class TestDecimalFix(TestDecimalFixCommon):
                     )
                     with self.with_mocked_pac_sign_success():
                         invoice._l10n_mx_edi_cfdi_invoice_try_send()
-                    payment = self._create_payment(
+                    payment = self._register_payment(
                         invoice, currency_id=self.usd_currency.id
                     )
                     with self.with_mocked_pac_sign_success():
@@ -1213,13 +1160,13 @@ class TestDecimalFix(TestDecimalFixCommon):
 
     def test_traslado_p_6dp_with_equivalencia(self):
         rate = 1.0 / 17.152701
-        self.setup_rates(self.usd_currency, (self.frozen_today, rate))
+        self.setup_other_currency("USD", rates=[(self.frozen_today, rate)])
         ns_pago = "http://www.sat.gob.mx/Pagos20"
         six = Decimal("0.000001")
 
         def run(rounding_method):
             with self.mx_external_setup(self.frozen_today):
-                invoice = self._create_invoice(
+                invoice = self._create_invoice_mx(
                     currency_id=self.usd_currency.id,
                     invoice_line_ids=[
                         Command.create(
@@ -1234,7 +1181,7 @@ class TestDecimalFix(TestDecimalFixCommon):
                 )
                 with self.with_mocked_pac_sign_success():
                     invoice._l10n_mx_edi_cfdi_invoice_try_send()
-                payment = self._create_payment(
+                payment = self._register_payment(
                     invoice, currency_id=self.mxn_currency.id
                 )
                 with self.with_mocked_pac_sign_success():
@@ -1265,5 +1212,167 @@ class TestDecimalFix(TestDecimalFixCommon):
                         expected.quantize(Decimal("0.01"), ROUND_HALF_UP),
                         rounding_method,
                     )
+
+        self._test_cfdi_rounding(run)
+
+    # -------------------------------------------------------------------------
+    # Case 13: local taxes (implocal) — Odoo 20 adds them to Total, so Total must
+    # be built from the rounded local amounts too.
+    # -------------------------------------------------------------------------
+
+    def test_total_arithmetic_consistency_local_taxes(self):
+        ns = "http://www.sat.gob.mx/cfd/4"
+        ns_local = "http://www.sat.gob.mx/implocal"
+
+        def run(rounding_method):
+            with self.mx_external_setup(self.frozen_today):
+                invoice = self._create_invoice_mx(
+                    currency_id=self.mxn_currency.id,
+                    invoice_line_ids=[
+                        Command.create(
+                            {
+                                "product_id": self.product.id,
+                                "quantity": 0.5,
+                                "price_unit": 83506.23,
+                                "tax_ids": [
+                                    Command.set(
+                                        (
+                                            self.tax_16 + self.local_tax_3_5_withholding
+                                        ).ids
+                                    )
+                                ],
+                            }
+                        ),
+                    ],
+                )
+                with self.with_mocked_pac_sign_success():
+                    invoice._l10n_mx_edi_cfdi_invoice_try_send()
+
+                cfdi = self._get_cfdi_tree(self._get_invoice_document(invoice))
+                local_taxes = cfdi.find(f".//{{{ns_local}}}ImpuestosLocales")
+                self.assertIsNotNone(local_taxes, rounding_method)
+                amounts = {
+                    "SubTotal": cfdi.get("SubTotal"),
+                    "Total": cfdi.get("Total"),
+                    "TotalImpuestosTrasladados": cfdi.find(f"{{{ns}}}Impuestos").get(
+                        "TotalImpuestosTrasladados"
+                    ),
+                    "TotaldeTraslados": local_taxes.get("TotaldeTraslados"),
+                    "TotaldeRetenciones": local_taxes.get("TotaldeRetenciones"),
+                }
+                for attr, value in amounts.items():
+                    self.assertRegex(
+                        value, r"^\d+\.\d{2}$", f"{attr} {rounding_method}"
+                    )
+                self.assertEqual(amounts["SubTotal"], "41753.12")
+                self.assertEqual(amounts["TotalImpuestosTrasladados"], "6680.50")
+                self.assertEqual(amounts["TotaldeRetenciones"], "1461.36")
+                self.assertEqual(
+                    Decimal(amounts["Total"]),
+                    Decimal(amounts["SubTotal"])
+                    + Decimal(amounts["TotalImpuestosTrasladados"])
+                    + Decimal(amounts["TotaldeTraslados"])
+                    - Decimal(amounts["TotaldeRetenciones"]),
+                    rounding_method,
+                )
+
+        self._test_cfdi_rounding(run)
+
+    # -------------------------------------------------------------------------
+    # Case 14: factoring — Odoo 20 reports the paid and the compensated parts of
+    # an invoice as two pago20:Pago nodes. Each Monto keeps 2 decimals and the
+    # Totales add up the P amounts of both nodes.
+    # -------------------------------------------------------------------------
+
+    def test_factoring_payment_several_pago_nodes(self):
+        ns_pago = "http://www.sat.gob.mx/Pagos20"
+        two = Decimal("0.01")
+
+        def run(rounding_method):
+            with self.mx_external_setup(self.frozen_today):
+                invoice = self._create_invoice_mx(
+                    currency_id=self.mxn_currency.id,
+                    invoice_line_ids=[
+                        Command.create(
+                            {
+                                "product_id": self.product.id,
+                                "quantity": 0.5,
+                                "price_unit": 83506.23,
+                                "tax_ids": [Command.set(self.tax_16.ids)],
+                            }
+                        ),
+                    ],
+                )
+                with self.with_mocked_pac_sign_success():
+                    invoice._l10n_mx_edi_cfdi_invoice_try_send()
+
+                st_line = self.env["account.bank.statement.line"].create(
+                    {
+                        "journal_id": self.company_data["default_journal_bank"].id,
+                        "amount": 40000.0,
+                        "payment_ref": "Factoring",
+                        "partner_id": self.partner_mx.id,
+                    }
+                )
+                wizard = (
+                    self.env["l10n_mx_edi.register.factoring"]
+                    .with_context(
+                        statement_line_id=st_line.id,
+                        move_line_ids=invoice.line_ids.filtered(
+                            lambda line: line.account_type == "asset_receivable"
+                        ).ids,
+                    )
+                    .create({})
+                )
+                wizard.line_ids.write(
+                    {
+                        "amount_trans_currency": 40000.0,
+                        "compensation_amount_trans_currency": (
+                            invoice.amount_residual - 40000.0
+                        ),
+                    }
+                )
+                wizard.action_apply_factoring()
+                self.assertEqual(invoice.payment_state, "paid", rounding_method)
+                with self.with_mocked_pac_sign_success():
+                    st_line.move_id._l10n_mx_edi_cfdi_payment_try_send()
+
+                pay_cfdi = self._get_cfdi_tree(
+                    self._get_payment_document(st_line.move_id)
+                )
+                pagos = pay_cfdi.findall(f".//{{{ns_pago}}}Pago")
+                self.assertEqual(len(pagos), 2, rounding_method)
+                base_total = importe_total = monto_total = Decimal(0)
+                for pago in pagos:
+                    monto = Decimal(pago.get("Monto"))
+                    self.assertRegex(
+                        pago.get("Monto"), r"^\d+\.\d{2}$", rounding_method
+                    )
+                    imp_pagado = sum(
+                        Decimal(docto.get("ImpPagado"))
+                        for docto in pago.findall(f"{{{ns_pago}}}DoctoRelacionado")
+                    )
+                    self.assertLessEqual(imp_pagado, monto, rounding_method)
+                    traslado_p = pago.find(f".//{{{ns_pago}}}TrasladoP")
+                    base_total += Decimal(traslado_p.get("BaseP"))
+                    importe_total += Decimal(traslado_p.get("ImporteP"))
+                    monto_total += monto
+                self._assert_traslados_dr_within_sat_limits(pay_cfdi, rounding_method)
+                totales = pay_cfdi.find(f".//{{{ns_pago}}}Totales")
+                self.assertEqual(
+                    Decimal(totales.get("TotalTrasladosBaseIVA16")),
+                    base_total.quantize(two, ROUND_HALF_UP),
+                    rounding_method,
+                )
+                self.assertEqual(
+                    Decimal(totales.get("TotalTrasladosImpuestoIVA16")),
+                    importe_total.quantize(two, ROUND_HALF_UP),
+                    rounding_method,
+                )
+                self.assertEqual(
+                    Decimal(totales.get("MontoTotalPagos")),
+                    monto_total,
+                    rounding_method,
+                )
 
         self._test_cfdi_rounding(run)

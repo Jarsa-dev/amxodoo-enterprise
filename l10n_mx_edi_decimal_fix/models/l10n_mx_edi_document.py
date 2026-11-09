@@ -1,5 +1,17 @@
 from odoo import api, models
-from odoo.tools.float_utils import float_is_zero, float_round
+from odoo.tools.float_utils import float_round
+
+# Decimals the SAT catalog (c_Moneda) supports for MXN, USD... The currency may
+# be configured with more (6 in some databases), so they can not be read from
+# l10n_mx_edi_decimal_places.
+SAT_CURRENCY_DIGITS = 2
+
+
+def round_sat(amount):
+    """Round HALF-UP to the decimals the SAT supports for the currency."""
+    return float_round(
+        amount, precision_digits=SAT_CURRENCY_DIGITS, rounding_method="HALF-UP"
+    )
 
 
 class L10nMxEdiDocument(models.Model):
@@ -7,75 +19,74 @@ class L10nMxEdiDocument(models.Model):
 
     @api.model
     def _add_currency_cfdi_values(self, cfdi_values, currency):
+        # EXTENDS l10n_mx_edi
         res = super()._add_currency_cfdi_values(cfdi_values, currency)
-        currency_precision = currency.l10n_mx_edi_decimal_places
+        format_float = cfdi_values["format_float"]
 
-        def format_float(
-            amount, precision=currency_precision, rounding="HALF-UP", min_precision=None
+        def format_float_min_precision(
+            amount, precision=cfdi_values["currency_precision"], min_precision=None
         ):
-            if amount is None or amount is False:
-                return None
-            rounded = float_round(
-                amount, precision_digits=precision, rounding_method=rounding
-            )
-            if float_is_zero(rounded, precision_digits=precision):
-                rounded = 0.0
-            res = "%.*f" % (precision, rounded)
-            if min_precision is not None:
-                # Drop the trailing zeros beyond min_precision: "28200.000000"
-                # -> "28200.00", "18796.718750" -> "18796.71875".
-                integer, decimals = res.split(".")
-                res = f"{integer}.{decimals.rstrip('0').ljust(min_precision, '0')}"
-            return res
+            """Same as format_float, optionally dropping the trailing zeros beyond
+            min_precision: "28200.000000" -> "28200.00",
+            "18796.718750" -> "18796.71875".
+            """
+            formatted = format_float(amount, precision=precision)
+            if formatted is None or min_precision is None or "." not in formatted:
+                return formatted
+            integer, decimals = formatted.split(".")
+            return f"{integer}.{decimals.rstrip('0').ljust(min_precision, '0')}"
 
-        cfdi_values.update(
-            {
-                "format_float": format_float,
-                "currency_precision": currency_precision,
-            }
-        )
+        cfdi_values["format_float"] = format_float_min_precision
         return res
 
     @api.model
-    def _get_post_fix_tax_amounts_map(
-        self, base_amount, tax_amount, tax_rate, precision_digits
+    def _add_base_lines_cfdi_values(
+        self, cfdi_values, base_lines, global_invoice=False
     ):
-        if (
-            float_round(
-                abs(base_amount * tax_rate - tax_amount),
-                precision_digits,
-                rounding_method="HALF-UP",
-            )
-            == 0.0
-        ):
-            # No arithmetic inconsistency at precision_digits — return values
-            # unchanged so that delta_base_amount is exactly 0.0. Returning a
-            # float-rounded new_base would produce a different IEEE-754
-            # double than base_amount, generating a sub-epsilon negative delta
-            # that, when added to gross_price_subtotal (which may be a third
-            # distinct double), pushes importe below the ROUND_HALF_UP midpoint.
-            return {
-                "new_base_amount": base_amount,
-                "new_tax_amount": tax_amount,
-                "delta_base_amount": 0.0,
-                "delta_tax_amount": 0.0,
-            }
+        """Express the amounts of the document with the SAT decimals.
 
-        # HALF-UP, never UP: the SAT accepts ImporteDR only within
-        # [trunc(BaseDR * Tasa), ceil(BaseDR * Tasa)] (CRP20261). Rounding the
-        # base up moves up to one unit from importe to base, which can push
-        # importe below the lower limit (7793.24 / 1.16 = 6718.3103 -> UP gives
-        # 6718.32 / 1074.92 but 6718.32 * 0.16 = 1074.9312 -> min 1074.93).
-        total = base_amount + tax_amount
-        new_base_amount = float_round(
-            total / (1 + tax_rate),
-            precision_digits=precision_digits,
-            rounding_method="HALF-UP",
+        With a currency configured with more decimals, the document amounts keep
+        them (SubTotal="41753.115000"). Round each one HALF-UP and build the
+        totals from the rounded amounts, so that the arithmetic the PAC checks
+        (Total = SubTotal - Descuento + taxes) holds with the printed values.
+        """
+        # EXTENDS l10n_mx_edi
+        res = super()._add_base_lines_cfdi_values(
+            cfdi_values, base_lines, global_invoice=global_invoice
         )
-        new_tax_amount = total - new_base_amount
-        return {
-            "new_base_amount": new_base_amount,
-            "new_tax_amount": new_tax_amount,
-            "delta_base_amount": new_base_amount - base_amount,
-            "delta_tax_amount": new_tax_amount - tax_amount,
-        }
+        for key in (
+            "retenciones_list",
+            "traslados_list",
+            "local_retenciones_list",
+            "local_traslados_list",
+        ):
+            for tax_values in cfdi_values[key]:
+                for amount_key in ("base", "importe"):
+                    if tax_values.get(amount_key) is not None:
+                        tax_values[amount_key] = round_sat(tax_values[amount_key])
+        for total_key, key in (
+            ("total_impuestos_trasladados", "traslados_list"),
+            ("total_local_impuestos_trasladados", "local_traslados_list"),
+            ("total_impuestos_retenidos", "retenciones_list"),
+            ("total_local_impuestos_retenidos", "local_retenciones_list"),
+        ):
+            if cfdi_values[total_key] is not None:
+                cfdi_values[total_key] = round_sat(
+                    sum(
+                        tax_values["importe"]
+                        for tax_values in cfdi_values[key]
+                        if tax_values["importe"] is not None
+                    )
+                )
+        cfdi_values["subtotal"] = round_sat(cfdi_values["subtotal"])
+        if cfdi_values["descuento"] is not None:
+            cfdi_values["descuento"] = round_sat(cfdi_values["descuento"])
+        cfdi_values["total"] = round_sat(
+            cfdi_values["subtotal"]
+            - (cfdi_values["descuento"] or 0.0)
+            + (cfdi_values["total_impuestos_trasladados"] or 0.0)
+            - (cfdi_values["total_impuestos_retenidos"] or 0.0)
+            + cfdi_values["total_local_impuestos_trasladados"]
+            - cfdi_values["total_local_impuestos_retenidos"]
+        )
+        return res

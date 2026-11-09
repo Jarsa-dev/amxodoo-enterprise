@@ -20,3 +20,10 @@ class TestDecimalFixCommon(TestMxEdiCommon):
                 "rounding": 0.000001,
             }
         )
+
+    def _test_cfdi_rounding(self, run_function):
+        """Run ``run_function`` with both tax rounding methods of the company."""
+        for rounding_method in ("round_per_line", "round_globally"):
+            with self.subTest(tax_calculation_rounding_method=rounding_method):
+                self.env.company.tax_calculation_rounding_method = rounding_method
+                run_function(rounding_method)
