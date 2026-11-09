@@ -1,7 +1,6 @@
-<?xml version="1.0" encoding="utf-8" ?>
+<?xml version="1.0" encoding="UTF-8" ?>
 <odoo>
     <template id="cfdiv40_precision2" inherit_id="l10n_mx_edi.cfdiv40">
-
         <!-- cfdi:Comprobante -->
         <xpath
             expr="//*[local-name()='Comprobante' and namespace-uri()='http://www.sat.gob.mx/cfd/4']"
@@ -70,6 +69,5 @@
                 name="t-att-Importe"
             >format_float(tax_values['importe'], precision=2)</attribute>
         </xpath>
-
     </template>
 </odoo>

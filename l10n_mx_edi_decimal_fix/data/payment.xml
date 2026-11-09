@@ -1,7 +1,6 @@
-<?xml version="1.0" encoding="utf-8" ?>
+<?xml version="1.0" encoding="UTF-8" ?>
 <odoo>
     <template id="payment20_precision2" inherit_id="l10n_mx_edi.payment20">
-
         <!-- Totales -->
         <xpath
             expr="//*[local-name()='Totales' and namespace-uri()='http://www.sat.gob.mx/Pagos20']"
@@ -172,7 +171,6 @@
             <attribute name="t-att-ImpSaldoInsoluto">invoice_values['format_float'](
                 abs(invoice_values['imp_saldo_insoluto']), precision=2
             )</attribute>
-
         </xpath>
 
         <!-- RetencionDR / TrasladoDR: amounts are already rounded to 2 decimals in
@@ -248,6 +246,5 @@
                 )
             </attribute>
         </xpath>
-
     </template>
 </odoo>
