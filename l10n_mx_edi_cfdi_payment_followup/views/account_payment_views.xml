@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" ?>
+<?xml version="1.0" encoding="UTF-8" ?>
 <odoo>
     <!-- Form view: add button and CFDI state statusbar in header -->
     <record id="view_account_payment_form_cfdi_followup" model="ir.ui.view">

@@ -187,8 +187,10 @@ class AccountMove(models.Model):
         counting as before.
         """
         return self.l10n_mx_edi_payment_document_ids.filtered(
-            lambda doc: doc.state == "payment_sent"
-            and (not doc.attachment_id or doc.attachment_id.file_size)
+            lambda doc: (
+                doc.state == "payment_sent"
+                and (not doc.attachment_id or doc.attachment_id.file_size)
+            )
         )
 
     @api.model
@@ -300,8 +302,7 @@ class AccountMove(models.Model):
             # Read the stored state from DB to avoid reading the field being
             # computed (which would cause circular evaluation issues).
             self.env.cr.execute(
-                "SELECT l10n_mx_edi_cfdi_payment_state "
-                "FROM account_move WHERE id = %s",
+                "SELECT l10n_mx_edi_cfdi_payment_state FROM account_move WHERE id = %s",
                 [record.id],
             )
             row = self.env.cr.fetchone()
@@ -365,8 +366,10 @@ class AccountMove(models.Model):
             # 'validated' (or 'error') without manual intervention.
             if new_state == "pending" and prev_state != "pending":
                 xml_attachments = record.attachment_ids.filtered(
-                    lambda a: (a.name or "").lower().endswith(".xml")
-                    or "xml" in (a.mimetype or "").lower()
+                    lambda a: (
+                        (a.name or "").lower().endswith(".xml")
+                        or "xml" in (a.mimetype or "").lower()
+                    )
                 )
                 for attachment in xml_attachments:
                     record._process_cfdi_payment_xml(attachment)
@@ -482,7 +485,7 @@ class AccountMove(models.Model):
             record.l10n_mx_edi_cfdi_payment_manual_ignore = False
             record.message_post(
                 body=_(
-                    "CFDI payment complement follow-up re-enabled " "(ignore reverted)."
+                    "CFDI payment complement follow-up re-enabled (ignore reverted)."
                 ),
                 message_type="comment",
                 subtype_xmlid="mail.mt_note",
@@ -744,7 +747,7 @@ class AccountMove(models.Model):
         The amount is checked in :meth:`_process_cfdi_payment_xml`
         against all the complements of the payment, not one XML alone.
         """
-        from datetime import datetime  # noqa: PLC0415
+        from datetime import datetime
 
         errors = []
 

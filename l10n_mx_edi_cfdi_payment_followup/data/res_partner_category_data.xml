@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" ?>
+<?xml version="1.0" encoding="UTF-8" ?>
 <odoo>
     <!-- The follow-up looks this tag up by name (see account_move.py), so a tag
          created by hand with the same name keeps working. -->
