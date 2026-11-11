@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" ?>
+<?xml version="1.0" encoding="UTF-8" ?>
 <odoo>
     <record id="mail_template_cfdi_complement_request" model="mail.template">
         <field name="name">CFDI Payment Complement Request</field>
@@ -45,12 +45,14 @@
                         <td style="border: 1px solid #ddd; padding: 8px;">Amount</td>
                         <td style="border: 1px solid #ddd; padding: 8px;">
                             $<t t-out="'{:,.2f}'.format(abs(object.amount_total))" /> <t
-                                t-out="object.currency_id.name or ''"
-                            />
+                            t-out="object.currency_id.name or ''"
+                        />
                         </td>
                     </tr>
                 </table>
-                <p><strong>Related Invoices:</strong></p>
+                <p>
+                    <strong>Related Invoices:</strong>
+                </p>
                 <table
                     style="border-collapse: collapse; width: 100%; margin-bottom: 16px;"
                 >
@@ -78,20 +80,18 @@
                             </td>
                             <td style="border: 1px solid #ddd; padding: 8px;">
                                 $<t
-                                    t-out="'{:,.2f}'.format(abs(detail['amount']))"
-                                /> <t
-                                    t-out="detail['invoice'].currency_id.name or ''"
-                                />
+                                t-out="'{:,.2f}'.format(abs(detail['amount']))"
+                            /> <t t-out="detail['invoice'].currency_id.name or ''" />
                             </td>
                         </tr>
                     </t>
                 </table>
                 <p>
                     Please send your Payment Complement, XML and PDF files, at your earliest convenience, by replying to this email and attaching them<t
-                        t-if="object.company_id.l10n_mx_edi_cfdi_payment_cc_user_ids"
-                    >, or by sending them to <t
-                            t-out="', '.join(object.company_id.l10n_mx_edi_cfdi_payment_cc_user_ids.mapped('email'))"
-                        /></t>.
+                    t-if="object.company_id.l10n_mx_edi_cfdi_payment_cc_user_ids"
+                >, or by sending them to <t
+                    t-out="', '.join(object.company_id.l10n_mx_edi_cfdi_payment_cc_user_ids.mapped('email'))"
+                /></t>.
                 </p>
                 <p>
                     Thank you,<br />

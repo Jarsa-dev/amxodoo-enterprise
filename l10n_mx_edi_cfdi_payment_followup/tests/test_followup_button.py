@@ -157,8 +157,7 @@ class TestFollowupButton(TestCfdiPaymentFollowupCommon):
         self.assertEqual(
             activities[0].activity_type_id,
             self.env.ref(
-                "l10n_mx_edi_cfdi_payment_followup."
-                "mail_activity_type_cfdi_complement"
+                "l10n_mx_edi_cfdi_payment_followup.mail_activity_type_cfdi_complement"
             ),
         )
 

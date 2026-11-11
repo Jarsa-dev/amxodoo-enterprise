@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" ?>
+<?xml version="1.0" encoding="UTF-8" ?>
 <odoo>
     <!-- Bank reconciliation list view: add CFDI state columns and action button -->
     <record id="view_bank_statement_line_tree_cfdi_followup" model="ir.ui.view">
@@ -116,8 +116,8 @@
                 >CFDI Error</span>
                 <a
                     t-if="record.l10n_mx_edi_cfdi_payment_receipt_filename.raw_value"
-                    t-att-href="'/web/content/account.bank.statement.line/' + record.id.raw_value + '/l10n_mx_edi_cfdi_payment_receipt?download=true'"
                     class="btn btn-secondary ms-1 me-1"
+                    t-att-href="'/web/content/account.bank.statement.line/' + record.id.raw_value + '/l10n_mx_edi_cfdi_payment_receipt?download=true'"
                     title="Download Receipt"
                 >
                     <i class="fa fa-download" />

@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" ?>
+<?xml version="1.0" encoding="UTF-8" ?>
 <odoo>
     <!-- Server actions: ignore / revert CFDI complement follow-up -->
     <record id="action_cfdi_ignore_payment" model="ir.actions.server">
