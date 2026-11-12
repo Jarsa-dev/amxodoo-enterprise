@@ -8,7 +8,7 @@ from odoo.tests.common import TransactionCase
 
 def _first_day_next_month(d=None):
     """Return the first day of the month following d (default: today)."""
-    d = d or date.today()
+    d = d or fields.Date.today()
     if d.month == 12:
         return date(d.year + 1, 1, 1)
     return date(d.year, d.month + 1, 1)
@@ -42,7 +42,7 @@ class TestCfdiPaymentFollowupCommon(TransactionCase):
                 "name": "Receivable Test",
                 "code": "TEST.REC",
                 "account_type": "asset_receivable",
-                "company_id": cls.company_mx.id,
+                "company_ids": [Command.link(cls.company_mx.id)],
                 "reconcile": True,
             }
         )
@@ -51,7 +51,7 @@ class TestCfdiPaymentFollowupCommon(TransactionCase):
                 "name": "Payable Test",
                 "code": "TEST.PAY",
                 "account_type": "liability_payable",
-                "company_id": cls.company_mx.id,
+                "company_ids": [Command.link(cls.company_mx.id)],
                 "reconcile": True,
             }
         )
@@ -60,7 +60,7 @@ class TestCfdiPaymentFollowupCommon(TransactionCase):
                 "name": "Income Test",
                 "code": "TEST.INC",
                 "account_type": "income",
-                "company_id": cls.company_mx.id,
+                "company_ids": [Command.link(cls.company_mx.id)],
             }
         )
         cls.account_bank = cls.env["account.account"].create(
@@ -68,7 +68,7 @@ class TestCfdiPaymentFollowupCommon(TransactionCase):
                 "name": "Bank Test",
                 "code": "TEST.BNK",
                 "account_type": "asset_cash",
-                "company_id": cls.company_mx.id,
+                "company_ids": [Command.link(cls.company_mx.id)],
             }
         )
         cls.account_outstanding_receipts = cls.env["account.account"].create(
@@ -76,7 +76,7 @@ class TestCfdiPaymentFollowupCommon(TransactionCase):
                 "name": "Outstanding Receipts Test",
                 "code": "TEST.OSR",
                 "account_type": "asset_current",
-                "company_id": cls.company_mx.id,
+                "company_ids": [Command.link(cls.company_mx.id)],
                 "reconcile": True,
             }
         )
@@ -85,7 +85,7 @@ class TestCfdiPaymentFollowupCommon(TransactionCase):
                 "name": "Outstanding Payments Test",
                 "code": "TEST.OSP",
                 "account_type": "liability_current",
-                "company_id": cls.company_mx.id,
+                "company_ids": [Command.link(cls.company_mx.id)],
                 "reconcile": True,
             }
         )
@@ -95,23 +95,13 @@ class TestCfdiPaymentFollowupCommon(TransactionCase):
             {
                 "name": "Test Customer MX",
                 "email": "customer@test.mx",
-                "company_type": "company",
+                "is_company": True,
                 "property_account_receivable_id": cls.account_receivable.id,
                 "property_account_payable_id": cls.account_payable.id,
             }
         )
 
         # ---- Journal --------------------------------------------------------
-        cls.company_mx.write(
-            {
-                "account_journal_payment_debit_account_id": (
-                    cls.account_outstanding_receipts.id
-                ),
-                "account_journal_payment_credit_account_id": (
-                    cls.account_outstanding_payments.id
-                ),
-            }
-        )
         cls.bank_journal = cls.env["account.journal"].create(
             {
                 "name": "Bank Test MX",
@@ -121,6 +111,13 @@ class TestCfdiPaymentFollowupCommon(TransactionCase):
                 "default_account_id": cls.account_bank.id,
                 "l10n_mx_edi_cfdi_payment_followup": True,
             }
+        )
+        # Without an outstanding account a payment has no journal entry
+        cls.bank_journal.inbound_payment_method_line_ids.payment_account_id = (
+            cls.account_outstanding_receipts
+        )
+        cls.bank_journal.outbound_payment_method_line_ids.payment_account_id = (
+            cls.account_outstanding_payments
         )
         cls.sale_journal = cls.env["account.journal"].create(
             {
@@ -218,11 +215,11 @@ class TestCfdiPaymentFollowupCommon(TransactionCase):
         """
         CFDI = "http://www.sat.gob.mx/cfd/4"
         TFD = "http://www.sat.gob.mx/TimbreFiscalDigital"
-        root = etree.Element("{%s}Comprobante" % CFDI, nsmap={"cfdi": CFDI, "tfd": TFD})
+        root = etree.Element(f"{{{CFDI}}}Comprobante", nsmap={"cfdi": CFDI, "tfd": TFD})
         root.set("TipoDeComprobante", "I")
         root.set("Version", "4.0")
-        complemento = etree.SubElement(root, "{%s}Complemento" % CFDI)
-        tfd = etree.SubElement(complemento, "{%s}TimbreFiscalDigital" % TFD)
+        complemento = etree.SubElement(root, f"{{{CFDI}}}Complemento")
+        tfd = etree.SubElement(complemento, f"{{{TFD}}}TimbreFiscalDigital")
         tfd.set("UUID", invoice_uuid)
         tfd.set("Version", "1.1")
 
@@ -238,6 +235,7 @@ class TestCfdiPaymentFollowupCommon(TransactionCase):
         cls.env["l10n_mx_edi.document"].create(
             {
                 "move_id": invoice.id,
+                "company_id": invoice.company_id.id,
                 "invoice_ids": [Command.link(invoice.id)],
                 "attachment_id": attachment.id,
                 "state": "invoice_sent",
@@ -275,13 +273,13 @@ class TestCfdiPaymentFollowupCommon(TransactionCase):
         PAGO20 = "http://www.sat.gob.mx/Pagos20"
         TFD = "http://www.sat.gob.mx/TimbreFiscalDigital"
 
-        root = etree.Element("{%s}Comprobante" % CFDI, nsmap=NSMAP)
+        root = etree.Element(f"{{{CFDI}}}Comprobante", nsmap=NSMAP)
         root.set("TipoDeComprobante", "P")
         root.set("Version", "4.0")
 
-        complemento = etree.SubElement(root, "{%s}Complemento" % CFDI)
+        complemento = etree.SubElement(root, f"{{{CFDI}}}Complemento")
 
-        pagos = etree.SubElement(complemento, "{%s}Pagos" % PAGO20)
+        pagos = etree.SubElement(complemento, f"{{{PAGO20}}}Pagos")
         pagos.set("Version", "2.0")
 
         # Format date to ISO 8601 datetime
@@ -290,23 +288,23 @@ class TestCfdiPaymentFollowupCommon(TransactionCase):
         else:
             fecha_pago = str(payment_date) + "T12:00:00"
 
-        pago = etree.SubElement(pagos, "{%s}Pago" % PAGO20)
+        pago = etree.SubElement(pagos, f"{{{PAGO20}}}Pago")
         pago.set("FormaDePagoP", forma_pago)
         pago.set("FechaPago", fecha_pago)
-        pago.set("Monto", "%.2f" % float(amount))
+        pago.set("Monto", f"{float(amount):.2f}")
         pago.set("MonedaP", "MXN")
 
         for inv_uuid in invoice_uuids:
-            docto = etree.SubElement(pago, "{%s}DoctoRelacionado" % PAGO20)
+            docto = etree.SubElement(pago, f"{{{PAGO20}}}DoctoRelacionado")
             docto.set("IdDocumento", inv_uuid)
             docto.set("ImpSaldoInsoluto", saldo_insoluto)
             docto.set("MonedaDR", "MXN")
             docto.set("EquivalenciaDR", "1")
 
-        totales = etree.SubElement(pagos, "{%s}Totales" % PAGO20)
-        totales.set("MontoTotalPagos", "%.2f" % float(amount))
+        totales = etree.SubElement(pagos, f"{{{PAGO20}}}Totales")
+        totales.set("MontoTotalPagos", f"{float(amount):.2f}")
 
-        tfd = etree.SubElement(complemento, "{%s}TimbreFiscalDigital" % TFD)
+        tfd = etree.SubElement(complemento, f"{{{TFD}}}TimbreFiscalDigital")
         tfd.set("UUID", payment_uuid)
         tfd.set("Version", "1.1")
 

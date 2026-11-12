@@ -38,7 +38,7 @@ class TestXmlValidation(TestCfdiPaymentFollowupCommon):
         from lxml import etree
 
         CFDI = "http://www.sat.gob.mx/cfd/4"
-        root = etree.Element("{%s}Comprobante" % CFDI)
+        root = etree.Element(f"{{{CFDI}}}Comprobante")
         root.set("TipoDeComprobante", "I")
         xml_bytes = etree.tostring(root, xml_declaration=True, encoding="UTF-8")
 
@@ -90,8 +90,8 @@ class TestXmlValidation(TestCfdiPaymentFollowupCommon):
 
     def test_date_within_tolerance(self):
         """FechaPago 2 days after payment date → validated (default tolerance=2)."""
-        self.env["ir.config_parameter"].set_param(
-            "l10n_mx_edi_cfdi_payment_date_tolerance_days", "2"
+        self.env["ir.config_parameter"].set_int(
+            "l10n_mx_edi_cfdi_payment_date_tolerance_days", 2
         )
         two_days_later = fields.Date.today() + timedelta(days=2)
         xml = self._build_cfdi_xml(
@@ -107,8 +107,8 @@ class TestXmlValidation(TestCfdiPaymentFollowupCommon):
 
     def test_date_exceeds_tolerance(self):
         """FechaPago 3 days after payment when tolerance=2 → 'error'."""
-        self.env["ir.config_parameter"].set_param(
-            "l10n_mx_edi_cfdi_payment_date_tolerance_days", "2"
+        self.env["ir.config_parameter"].set_int(
+            "l10n_mx_edi_cfdi_payment_date_tolerance_days", 2
         )
         three_days_later = fields.Date.today() + timedelta(days=3)
         xml = self._build_cfdi_xml(
@@ -299,9 +299,9 @@ class TestXmlValidation(TestCfdiPaymentFollowupCommon):
         second = self._attach_xml(move, second_xml, filename="second.xml")
         self.assertEqual(move.l10n_mx_edi_cfdi_payment_state, "validated")
 
-        second.write({"datas": False})
+        second.write({"raw": False})
         self.assertEqual(move.l10n_mx_edi_cfdi_payment_state, "received")
-        first.write({"datas": False})
+        first.write({"raw": False})
         self.assertEqual(move.l10n_mx_edi_cfdi_payment_state, "pending")
         self.assertFalse(move._get_cfdi_payment_sent_documents())
 
@@ -436,8 +436,8 @@ class TestXmlValidation(TestCfdiPaymentFollowupCommon):
 
     def test_configurable_date_tolerance(self):
         """Override tolerance to 0 days: date same as payment is ok, +1 day is error."""
-        self.env["ir.config_parameter"].set_param(
-            "l10n_mx_edi_cfdi_payment_date_tolerance_days", "0"
+        self.env["ir.config_parameter"].set_int(
+            "l10n_mx_edi_cfdi_payment_date_tolerance_days", 0
         )
         # Same day → validated
         xml_same = self._build_cfdi_xml(

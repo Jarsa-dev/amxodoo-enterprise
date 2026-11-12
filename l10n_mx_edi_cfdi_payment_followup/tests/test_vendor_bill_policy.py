@@ -79,6 +79,7 @@ class TestVendorBillPolicy(TestCfdiPaymentFollowupCommon):
         self.env["l10n_mx_edi.document"].create(
             {
                 "move_id": bill.id,
+                "company_id": self.company_mx.id,
                 "invoice_ids": [Command.set(bill.ids)],
                 "state": "invoice_received",
                 "sat_state": "not_defined",

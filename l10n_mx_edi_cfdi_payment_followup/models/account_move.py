@@ -2,7 +2,7 @@ from datetime import timedelta
 
 from lxml import etree
 
-from odoo import Command, _, api, fields, models
+from odoo import Command, api, fields, models
 from odoo.exceptions import UserError
 from odoo.tools.misc import formatLang
 
@@ -124,7 +124,9 @@ class AccountMove(models.Model):
         if self.is_purchase_document() and self.l10n_mx_edi_cfdi_attachment_id:
             cfdi_node = (
                 self.env["l10n_mx_edi.document"]
-                ._decode_cfdi_attachment(self.l10n_mx_edi_cfdi_attachment_id.raw)
+                ._decode_cfdi_attachment(
+                    self.l10n_mx_edi_cfdi_attachment_id.raw.content
+                )
                 .get("cfdi_node")
             )
             policy = cfdi_node.get("MetodoPago") if cfdi_node is not None else None
@@ -156,7 +158,7 @@ class AccountMove(models.Model):
         # Rule 1: Only process payment-type entries
         if self.move_type != "entry":
             return False
-        if not self.payment_id and not self.statement_line_id:
+        if not self.origin_payment_id and not self.statement_line_id:
             return False
 
         # Rule 1.1: Only journals flagged as requiring the complement.
@@ -199,7 +201,7 @@ class AccountMove(models.Model):
         if not xml_raw:
             return None
         try:
-            tree = etree.fromstring(xml_raw)
+            tree = etree.fromstring(bytes(xml_raw))
         except (etree.XMLSyntaxError, ValueError):
             return None
         pago_nodes = tree.findall(".//pago20:Pago", _CFDI_NSMAP)
@@ -351,12 +353,12 @@ class AccountMove(models.Model):
                 and new_state in ("pending", "not_required")
             ):
                 record.with_context(cfdi_followup_skip_notify=True).message_post(
-                    body=_(
+                    body=self.env._(
                         "Warning: This payment was un-reconciled from a PPD invoice "
                         "but a validated CFDI payment complement already existed "
-                        "(UUID: %s). Please review the fiscal situation."
-                    )
-                    % prev_uuid,
+                        "(UUID: %s). Please review the fiscal situation.",
+                        prev_uuid,
+                    ),
                     message_type="comment",
                     subtype_xmlid="mail.mt_note",
                 )
@@ -408,12 +410,12 @@ class AccountMove(models.Model):
 
             if not recipient_email:
                 raise UserError(
-                    _(
+                    self.env._(
                         "No email address found for partner %s. "
                         "Please configure a contact with the 'cfdi_complement_contact' "
-                        "tag or a main email."
+                        "tag or a main email.",
+                        record.partner_id.display_name,
                     )
-                    % record.partner_id.display_name
                 )
 
             # Send mail template
@@ -431,9 +433,9 @@ class AccountMove(models.Model):
                         {
                             "name": (
                                 record.l10n_mx_edi_cfdi_payment_receipt_filename
-                                or _("Payment Receipt.pdf")
+                                or self.env._("Payment Receipt.pdf")
                             ),
-                            "datas": record.l10n_mx_edi_cfdi_payment_receipt,
+                            "raw": record.l10n_mx_edi_cfdi_payment_receipt,
                             "mimetype": "application/pdf",
                         }
                     )
@@ -456,7 +458,9 @@ class AccountMove(models.Model):
                 }
             )
             record.message_post(
-                body=_("Complement request email sent to %s.") % recipient_email,
+                body=self.env._(
+                    "Complement request email sent to %s.", recipient_email
+                ),
                 message_type="comment",
                 subtype_xmlid="mail.mt_note",
             )
@@ -472,7 +476,9 @@ class AccountMove(models.Model):
                 continue
             record.l10n_mx_edi_cfdi_payment_manual_ignore = True
             record.message_post(
-                body=_("CFDI payment complement marked as Not Required (ignored)."),
+                body=self.env._(
+                    "CFDI payment complement marked as Not Required (ignored)."
+                ),
                 message_type="comment",
                 subtype_xmlid="mail.mt_note",
             )
@@ -484,7 +490,7 @@ class AccountMove(models.Model):
                 continue
             record.l10n_mx_edi_cfdi_payment_manual_ignore = False
             record.message_post(
-                body=_(
+                body=self.env._(
                     "CFDI payment complement follow-up re-enabled (ignore reverted)."
                 ),
                 message_type="comment",
@@ -496,10 +502,10 @@ class AccountMove(models.Model):
 
         Intended to be called by a scheduled action (cron).
         """
-        interval_days = int(
+        interval_days = (
             self.env["ir.config_parameter"]
             .sudo()
-            .get_param("l10n_mx_edi_cfdi_payment_followup_interval_days", default=5)
+            .get_int("l10n_mx_edi_cfdi_payment_followup_interval_days", default=5)
         )
         cutoff = fields.Datetime.now() - timedelta(days=interval_days)
 
@@ -524,12 +530,12 @@ class AccountMove(models.Model):
         team = self.company_id.l10n_mx_edi_cfdi_responsible_team_id
         if not team:
             raise UserError(
-                _(
+                self.env._(
                     "CFDI responsible team is not configured for company %s. "
                     "Please go to Accounting > Settings and set the "
-                    "CFDI Follow-up Responsible Team."
+                    "CFDI Follow-up Responsible Team.",
+                    self.company_id.name,
                 )
-                % self.company_id.name
             )
         return team
 
@@ -539,7 +545,7 @@ class AccountMove(models.Model):
 
         Centralized to keep create/close paths in sync regardless of locale.
         """
-        return _("CFDI Complement Error")
+        return self.env._("CFDI Complement Error")
 
     def _create_cfdi_payment_activity(self, error_message):
         """Create a follow-up activity for the configured responsible team.
@@ -560,7 +566,7 @@ class AccountMove(models.Model):
         activities = self.activity_ids.filtered(lambda a: a.summary == summary)
         if activities:
             activities.action_feedback(
-                feedback=_("CFDI payment complement validated successfully.")
+                feedback=self.env._("CFDI payment complement validated successfully.")
             )
 
     def _process_cfdi_payment_xml(self, attachment):
@@ -581,7 +587,7 @@ class AccountMove(models.Model):
 
         # Step 2: parse XML
         try:
-            tree = etree.fromstring(attachment.raw)
+            tree = etree.fromstring(attachment.raw.content)
         except etree.XMLSyntaxError:
             return
 
@@ -599,7 +605,7 @@ class AccountMove(models.Model):
         tfd_node = tree.find(".//tfd:TimbreFiscalDigital", _CFDI_NSMAP)
         uuid = tfd_node.get("UUID") if tfd_node is not None else None
         if not uuid:
-            self._on_cfdi_xml_error(_("UUID not found in XML"))
+            self._on_cfdi_xml_error(self.env._("UUID not found in XML"))
             return
 
         # Idempotency: this complement was already accepted for the payment.
@@ -613,14 +619,14 @@ class AccountMove(models.Model):
         # Step 5: extract Pago nodes
         pago_nodes = tree.findall(".//pago20:Pago", _CFDI_NSMAP)
         if not pago_nodes:
-            self._on_cfdi_xml_error(_("No Pago node found"))
+            self._on_cfdi_xml_error(self.env._("No Pago node found"))
             return
 
         # Step 6: run all validation rules, accumulate errors
         errors = self._validate_cfdi_payment_xml(pago_nodes)
 
         if errors:
-            combined = "\n".join("- %s" % e for e in errors)
+            combined = "\n".join(f"- {e}" for e in errors)
             self._on_cfdi_xml_error(combined)
             return
 
@@ -634,15 +640,18 @@ class AccountMove(models.Model):
         if covered > payment_amount + _CFDI_AMOUNT_TOLERANCE:
             if abs(xml_amount - payment_amount) > _CFDI_AMOUNT_TOLERANCE:
                 if sent_documents:
-                    error = _(
-                        "Amount mismatch: complements total %(total)s vs Odoo %(odoo)s"
-                    ) % {"total": covered, "odoo": payment_amount}
+                    error = self.env._(
+                        "Amount mismatch: complements total %(total)s vs Odoo %(odoo)s",
+                        total=covered,
+                        odoo=payment_amount,
+                    )
                 else:
-                    error = _("Amount mismatch: XML total %(xml)s vs Odoo %(odoo)s") % {
-                        "xml": xml_amount,
-                        "odoo": payment_amount,
-                    }
-                self._on_cfdi_xml_error("- %s" % error)
+                    error = self.env._(
+                        "Amount mismatch: XML total %(xml)s vs Odoo %(odoo)s",
+                        xml=xml_amount,
+                        odoo=payment_amount,
+                    )
+                self._on_cfdi_xml_error(f"- {error}")
                 return
             replaced_documents = sent_documents
             covered = xml_amount
@@ -652,6 +661,7 @@ class AccountMove(models.Model):
         reconciled_invoices = self._get_cfdi_reconciled_invoices()
         document_values = {
             "move_id": self.id,
+            "company_id": self.company_id.id,
             "invoice_ids": [Command.set(reconciled_invoices.ids)],
             "state": "payment_sent",
             "sat_state": "not_defined",
@@ -678,20 +688,17 @@ class AccountMove(models.Model):
             # Amounts with the 2 decimals of the CFDI, not the currency's: some
             # databases raise the currency precision (e.g. to 6 decimals).
             currency = self.currency_id.name
+            missing = payment_amount - covered
             self.message_post(
-                body=_(
+                body=self.env._(
                     "Partial CFDI payment complement received. UUID: %(uuid)s. "
                     "The complements received cover %(covered)s of %(total)s; "
-                    "%(missing)s is still missing."
-                )
-                % {
-                    "uuid": uuid,
-                    "covered": f"{formatLang(self.env, covered)} {currency}",
-                    "total": f"{formatLang(self.env, payment_amount)} {currency}",
-                    "missing": (
-                        f"{formatLang(self.env, payment_amount - covered)} {currency}"
-                    ),
-                },
+                    "%(missing)s is still missing.",
+                    uuid=uuid,
+                    covered=f"{formatLang(self.env, covered)} {currency}",
+                    total=f"{formatLang(self.env, payment_amount)} {currency}",
+                    missing=f"{formatLang(self.env, missing)} {currency}",
+                ),
                 message_type="comment",
                 subtype_xmlid="mail.mt_note",
             )
@@ -705,26 +712,30 @@ class AccountMove(models.Model):
                 filter(None, replaced_documents.mapped("attachment_uuid"))
             )
             self.message_post(
-                body=_(
+                body=self.env._(
                     "Replacement CFDI payment complement received. "
                     "Previous UUID: %(prev)s — New UUID: %(new)s. "
-                    "Please verify the fiscal status of both documents."
-                )
-                % {"prev": previous_uuid, "new": uuid},
+                    "Please verify the fiscal status of both documents.",
+                    prev=previous_uuid,
+                    new=uuid,
+                ),
                 message_type="comment",
                 subtype_xmlid="mail.mt_note",
             )
             self._create_cfdi_payment_activity(
-                _(
+                self.env._(
                     "A replacement complement was received for this payment.\n"
-                    "Previous UUID: %(prev)s\nNew UUID: %(new)s"
+                    "Previous UUID: %(prev)s\nNew UUID: %(new)s",
+                    prev=previous_uuid,
+                    new=uuid,
                 )
-                % {"prev": previous_uuid, "new": uuid}
             )
         else:
             self.message_post(
-                body=_("CFDI payment complement validated successfully. UUID: %(uuid)s")
-                % {"uuid": uuid},
+                body=self.env._(
+                    "CFDI payment complement validated successfully. UUID: %(uuid)s",
+                    uuid=uuid,
+                ),
                 message_type="comment",
                 subtype_xmlid="mail.mt_note",
             )
@@ -736,7 +747,9 @@ class AccountMove(models.Model):
         )
         self._create_cfdi_payment_activity(combined_error)
         self.message_post(
-            body=_("CFDI payment complement validation failed:\n%s") % combined_error,
+            body=self.env._(
+                "CFDI payment complement validation failed:\n%s", combined_error
+            ),
             message_type="comment",
             subtype_xmlid="mail.mt_note",
         )
@@ -755,13 +768,15 @@ class AccountMove(models.Model):
         for pago in pago_nodes:
             forma = pago.get("FormaDePagoP", "")
             if forma != "03":
-                errors.append(_("Payment form is not SPEI (03), found: %s") % forma)
+                errors.append(
+                    self.env._("Payment form is not SPEI (03), found: %s", forma)
+                )
 
         # Rule 5: FechaPago must be >= record.date (within forward tolerance)
-        tolerance_days = int(
+        tolerance_days = (
             self.env["ir.config_parameter"]
             .sudo()
-            .get_param("l10n_mx_edi_cfdi_payment_date_tolerance_days", default=2)
+            .get_int("l10n_mx_edi_cfdi_payment_date_tolerance_days", default=2)
         )
         for pago in pago_nodes:
             fecha_str = pago.get("FechaPago", "")
@@ -770,31 +785,32 @@ class AccountMove(models.Model):
                     fecha = datetime.fromisoformat(fecha_str).date()
                 except ValueError:
                     errors.append(
-                        _("Invalid FechaPago format: %(fecha)s") % {"fecha": fecha_str}
+                        self.env._(
+                            "Invalid FechaPago format: %(fecha)s", fecha=fecha_str
+                        )
                     )
                     continue
                 record_date = self.date
                 if record_date:
                     if fecha < record_date:
                         errors.append(
-                            _(
+                            self.env._(
                                 "Complement date %(fecha)s precedes"
-                                " payment date %(date)s"
+                                " payment date %(date)s",
+                                fecha=fecha,
+                                date=record_date,
                             )
-                            % {"fecha": fecha, "date": record_date}
                         )
                     elif fecha > record_date + timedelta(days=tolerance_days):
                         errors.append(
-                            _(
+                            self.env._(
                                 "Complement date %(fecha)s exceeds"
                                 " payment date %(date)s"
-                                " by more than %(days)d day(s)"
+                                " by more than %(days)d day(s)",
+                                fecha=fecha,
+                                date=record_date,
+                                days=tolerance_days,
                             )
-                            % {
-                                "fecha": fecha,
-                                "date": record_date,
-                                "days": tolerance_days,
-                            }
                         )
 
         # Collect reconciled invoice UUIDs. UUIDs are compared in uppercase: the
@@ -814,8 +830,10 @@ class AccountMove(models.Model):
                 # Rule 6: IdDocumento must match a reconciled invoice UUID
                 if inv_uuid.upper() not in reconciled_uuids:
                     errors.append(
-                        _("Invoice UUID %(uuid)s not found in reconciled invoices")
-                        % {"uuid": inv_uuid}
+                        self.env._(
+                            "Invoice UUID %(uuid)s not found in reconciled invoices",
+                            uuid=inv_uuid,
+                        )
                     )
 
         # The outstanding balance (ImpSaldoInsoluto) is not validated: a PPD
@@ -828,8 +846,8 @@ class AccountMove(models.Model):
     # Mail hook
     # -------------------------------------------------------------------------
 
-    def _message_post_after_hook(self, new_message, message_values):
-        res = super()._message_post_after_hook(new_message, message_values)
-        for attachment in new_message.attachment_ids:
+    def _message_post_after_hook(self, message):
+        res = super()._message_post_after_hook(message)
+        for attachment in message.attachment_ids:
             self._process_cfdi_payment_xml(attachment)
         return res

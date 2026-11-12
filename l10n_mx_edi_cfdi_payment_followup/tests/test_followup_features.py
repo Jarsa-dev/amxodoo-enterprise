@@ -18,7 +18,8 @@ class TestCfdiFollowupFeatures(TestCfdiPaymentFollowupCommon):
         move = self.payment.move_id
         move.write(
             {
-                "l10n_mx_edi_cfdi_payment_receipt": b"JVBERi0xLjQK",  # 'pdf' bytes b64
+                # base64 of a PDF header
+                "l10n_mx_edi_cfdi_payment_receipt": "JVBERi0xLjQK",
                 "l10n_mx_edi_cfdi_payment_receipt_filename": "voucher.pdf",
             }
         )

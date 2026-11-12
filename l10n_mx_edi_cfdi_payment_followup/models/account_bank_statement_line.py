@@ -1,4 +1,4 @@
-from odoo import _, fields, models
+from odoo import fields, models
 from odoo.exceptions import UserError
 
 
@@ -17,15 +17,15 @@ class AccountBankStatementLine(models.Model):
 
     def action_open_receipt_wizard(self):
         self.ensure_one()
+        view = self.env.ref(
+            "l10n_mx_edi_cfdi_payment_followup.view_bank_statement_line_form_receipt_upload"
+        )
         return {
-            "name": "Upload Payment Receipt",
+            "name": self.env._("Upload Payment Receipt"),
             "type": "ir.actions.act_window",
             "res_model": "account.bank.statement.line",
             "res_id": self.id,
-            "view_mode": "form",
-            "view_id": self.env.ref(
-                "l10n_mx_edi_cfdi_payment_followup.view_bank_statement_line_form_receipt_upload"
-            ).id,
+            "views": [(view.id, "form")],
             "target": "new",
         }
 
@@ -50,7 +50,7 @@ class AccountBankStatementLine(models.Model):
         )
         if not targets:
             raise UserError(
-                _(
+                self.env._(
                     "No selected bank statement lines are in 'Pending' or "
                     "'Requested' state. Mass reminders can only be sent for "
                     "lines awaiting a CFDI payment complement."
@@ -62,8 +62,15 @@ class AccountBankStatementLine(models.Model):
             "tag": "display_notification",
             "params": {
                 "type": "success",
-                "message": _("CFDI complement reminders sent for %d payment(s).")
-                % len(targets),
+                "message": self.env._(
+                    "CFDI complement reminders sent for %d payment(s).", len(targets)
+                ),
                 "sticky": False,
             },
         }
+
+    def _message_post_after_hook(self, message):
+        res = super()._message_post_after_hook(message)
+        for attachment in message.attachment_ids:
+            self.move_id._process_cfdi_payment_xml(attachment)
+        return res

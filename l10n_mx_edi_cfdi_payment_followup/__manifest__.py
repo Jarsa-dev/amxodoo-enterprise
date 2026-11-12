@@ -1,8 +1,8 @@
 {
     "name": "Mexico - CFDI Payment Complement Follow-up",
     "summary": "Track and validate CFDI payment complements for PPD invoices",
-    "version": "17.0.1.5.1",
-    "author": "Jarsa, Odoo Mexican Association (AMOdoo)",
+    "version": "20.0.1.0.0",
+    "author": "Jarsa, Asociacion Mexicana de Odoo (AMOdoo)",
     "website": "https://github.com/amxodoo/enterprise",
     "license": "AGPL-3",
     "category": "Accounting/Localizations/Mexico",
@@ -13,7 +13,7 @@
     ],
     "data": [
         "security/l10n_mx_edi_cfdi_payment_followup_security.xml",
-        "security/ir.model.access.csv",
+        "security/ir.access.csv",
         "data/res_partner_category_data.xml",
         "data/mail_activity_data.xml",
         "data/mail_template_data.xml",
@@ -25,5 +25,10 @@
         "views/account_payment_views.xml",
         "views/account_bank_statement_line_views.xml",
     ],
+    "assets": {
+        "web.assets_backend": [
+            "l10n_mx_edi_cfdi_payment_followup/static/src/**/*",
+        ],
+    },
     "pre_init_hook": "pre_init_hook",
 }
