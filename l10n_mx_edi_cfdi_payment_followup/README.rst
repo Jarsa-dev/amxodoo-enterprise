@@ -242,7 +242,7 @@ Authors
 -------
 
 * Jarsa
-* Odoo Mexican Association (AMOdoo)
+* Asociacion Mexicana de Odoo (AMOdoo)
 
 Contributors
 ------------

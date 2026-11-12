@@ -122,6 +122,7 @@ class TestCfdiStateComputation(TestCfdiPaymentFollowupCommon):
         self.env["l10n_mx_edi.document"].create(
             {
                 "move_id": move.id,
+                "company_id": self.company_mx.id,
                 "state": "payment_sent",
                 "sat_state": "not_defined",
                 "datetime": fields.Datetime.now(),
@@ -137,6 +138,7 @@ class TestCfdiStateComputation(TestCfdiPaymentFollowupCommon):
         self.env["l10n_mx_edi.document"].create(
             {
                 "move_id": move.id,
+                "company_id": self.company_mx.id,
                 "state": "payment_sent",
                 "sat_state": "not_defined",
                 "datetime": fields.Datetime.now(),

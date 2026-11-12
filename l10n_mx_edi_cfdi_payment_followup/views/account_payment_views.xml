@@ -21,7 +21,7 @@
                     statusbar_visible="pending,requested,validated,error"
                 />
             </xpath>
-            <xpath expr="//field[@name='amount']" position="after">
+            <xpath expr="//field[@name='memo']" position="after">
                 <field name="l10n_mx_edi_cfdi_payment_receipt_filename" invisible="1" />
                 <field
                     name="l10n_mx_edi_cfdi_payment_receipt"
@@ -39,7 +39,7 @@
         <field name="model">account.payment</field>
         <field name="inherit_id" ref="account.view_account_payment_tree" />
         <field name="arch" type="xml">
-            <xpath expr="//tree/header" position="inside">
+            <xpath expr="//list/header" position="inside">
                 <button
                     name="action_cfdi_ignore"
                     type="object"

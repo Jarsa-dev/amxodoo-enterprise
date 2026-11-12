@@ -11,7 +11,7 @@
             ref="account_accountant.view_bank_statement_line_tree_bank_rec_widget"
         />
         <field name="arch" type="xml">
-            <xpath expr="//tree" position="inside">
+            <xpath expr="//list" position="inside">
                 <header>
                     <button
                         name="action_request_cfdi_complement_mass"
@@ -30,7 +30,7 @@
                     />
                 </header>
             </xpath>
-            <xpath expr="//field[@name='id']" position="before">
+            <xpath expr="//field[@name='state']" position="before">
                 <field
                     name="l10n_mx_edi_cfdi_is_supplier_payment"
                     column_invisible="1"
@@ -57,13 +57,14 @@
                     name="l10n_mx_edi_cfdi_payment_receipt"
                     widget="binary"
                     filename="l10n_mx_edi_cfdi_payment_receipt_filename"
-                    invisible="not l10n_mx_edi_cfdi_is_supplier_payment or l10n_mx_edi_cfdi_payment_state == 'not_required'"
+                    invisible="not l10n_mx_edi_cfdi_payment_receipt_filename"
+                    readonly="1"
                     optional="show"
                 />
                 <button
                     name="action_open_receipt_wizard"
                     type="object"
-                    icon="fa-upload"
+                    icon="upload"
                     title="Upload Receipt"
                     invisible="not l10n_mx_edi_cfdi_is_supplier_payment or l10n_mx_edi_cfdi_payment_state == 'not_required'"
                     class="btn btn-secondary"
@@ -72,7 +73,8 @@
         </field>
     </record>
 
-    <!-- Bank reconciliation kanban view: show CFDI state badge -->
+    <!-- Bank reconciliation kanban view: load the CFDI fields shown by the
+         statement line card (see static/src/bank_reconciliation) -->
     <record id="view_bank_statement_line_kanban_cfdi_followup" model="ir.ui.view">
         <field name="name">
             account.bank.statement.line.kanban.cfdi.payment.followup
@@ -83,53 +85,13 @@
             ref="account_accountant.view_bank_statement_line_kanban_bank_rec_widget"
         />
         <field name="arch" type="xml">
-            <xpath expr="//field[@name='to_check']" position="after">
-                <field name="l10n_mx_edi_cfdi_is_supplier_payment" invisible="1" />
+            <xpath
+                expr="//field[@name='bank_statement_attachment_ids']"
+                position="after"
+            >
+                <field name="l10n_mx_edi_cfdi_is_supplier_payment" />
                 <field name="l10n_mx_edi_cfdi_payment_state" />
-                <field name="l10n_mx_edi_cfdi_payment_receipt_filename" invisible="1" />
-            </xpath>
-            <xpath expr="//div[@id='row2_col2']/div" position="inside">
-                <span
-                    t-if="record.l10n_mx_edi_cfdi_payment_state.raw_value == 'pending'"
-                    class="badge text-bg-warning fw-normal"
-                    title="CFDI Pending"
-                >CFDI Pending</span>
-                <span
-                    t-if="record.l10n_mx_edi_cfdi_payment_state.raw_value == 'requested'"
-                    class="badge text-bg-info fw-normal"
-                    title="CFDI Requested"
-                >CFDI Requested</span>
-                <span
-                    t-if="record.l10n_mx_edi_cfdi_payment_state.raw_value == 'received'"
-                    class="badge text-bg-primary fw-normal"
-                    title="CFDI Partially Received"
-                >CFDI Partial</span>
-                <span
-                    t-if="record.l10n_mx_edi_cfdi_payment_state.raw_value == 'validated'"
-                    class="badge text-bg-success fw-normal"
-                    title="CFDI Validated"
-                >CFDI <i class="fa fa-check" /></span>
-                <span
-                    t-if="record.l10n_mx_edi_cfdi_payment_state.raw_value == 'error'"
-                    class="badge text-bg-danger fw-normal"
-                    title="CFDI Error"
-                >CFDI Error</span>
-                <a
-                    t-if="record.l10n_mx_edi_cfdi_payment_receipt_filename.raw_value"
-                    class="btn btn-secondary ms-1 me-1"
-                    t-att-href="'/web/content/account.bank.statement.line/' + record.id.raw_value + '/l10n_mx_edi_cfdi_payment_receipt?download=true'"
-                    title="Download Receipt"
-                >
-                    <i class="fa fa-download" />
-                </a>
-                <button
-                    name="action_open_receipt_wizard"
-                    type="object"
-                    icon="fa-upload"
-                    title="Upload/View Receipt"
-                    invisible="not l10n_mx_edi_cfdi_is_supplier_payment or l10n_mx_edi_cfdi_payment_state == 'not_required'"
-                    class="btn btn-secondary"
-                />
+                <field name="l10n_mx_edi_cfdi_payment_receipt_filename" />
             </xpath>
         </field>
     </record>
