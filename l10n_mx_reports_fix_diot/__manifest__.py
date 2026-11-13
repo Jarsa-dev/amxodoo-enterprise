@@ -3,9 +3,9 @@
 
 {
     "name": "Fix DIOT Report Values",
-    "version": "17.0.1.0.1",
+    "version": "20.0.1.0.0",
     "category": "Report",
-    "author": "Jarsa",
+    "author": "Jarsa, Asociacion Mexicana de Odoo (AMOdoo)",
     "website": "https://github.com/amxodoo/enterprise",
     "license": "LGPL-3",
     "depends": [
