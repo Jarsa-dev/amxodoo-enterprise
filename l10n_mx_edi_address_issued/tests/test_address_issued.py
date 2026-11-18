@@ -43,7 +43,7 @@ class TestAddressIssued(TestMxEdiCommon):
     # -------------------------------------------------------------------------
 
     def _foreign_invoice(self, move_type="out_invoice", journal=None):
-        return self._create_invoice(
+        return self._create_invoice_mx(
             move_type=move_type,
             partner_id=self.partner_us.id,
             journal_id=(journal or self.journal_a).id,
@@ -109,7 +109,7 @@ class TestAddressIssued(TestMxEdiCommon):
                 )
             )
 
-            payment = self._create_payment(invoice)
+            payment = self._register_payment(invoice)
             with self.with_mocked_pac_sign_success():
                 payment.move_id._l10n_mx_edi_cfdi_payment_try_send()
             document = payment.move_id.l10n_mx_edi_payment_document_ids.filtered(
@@ -123,15 +123,57 @@ class TestAddressIssued(TestMxEdiCommon):
             self.assertEqual(domicilio, "32472")
             self.assertEqual(lugar, domicilio)
 
+    def test_payment_mixed_branches_is_blocked(self):
+        with self.mx_external_setup(self.frozen_today):
+            invoice_a = self._foreign_invoice(journal=self.journal_a)
+            invoice_b = self._foreign_invoice(journal=self.journal_b)
+            invoices = invoice_a + invoice_b
+            with self.with_mocked_pac_sign_success():
+                for invoice in invoices:
+                    invoice._l10n_mx_edi_cfdi_invoice_try_send()
+
+            payment = self._register_payment(invoices)
+            with self.with_mocked_pac_sign_success():
+                payment.move_id._l10n_mx_edi_cfdi_payment_try_send()
+            document = payment.move_id.l10n_mx_edi_payment_document_ids[:1]
+            self.assertEqual(document.state, "payment_sent_failed")
+            self.assertIn("different branches", document.message)
+
+    def test_payment_domestic_customer_uses_branch_address(self):
+        # A Mexican customer keeps its own ZIP as DomicilioFiscalReceptor; only
+        # LugarExpedicion follows the branch.
+        with self.mx_external_setup(self.frozen_today):
+            invoice = self._create_invoice_mx(journal_id=self.journal_a.id)
+            with self.with_mocked_pac_sign_success():
+                invoice._l10n_mx_edi_cfdi_invoice_try_send()
+
+            payment = self._register_payment(invoice)
+            with self.with_mocked_pac_sign_success():
+                payment.move_id._l10n_mx_edi_cfdi_payment_try_send()
+            document = payment.move_id.l10n_mx_edi_payment_document_ids.filtered(
+                lambda d: d.state == "payment_sent"
+            )[:1]
+            self.assertTrue(document, "Payment CFDI not generated")
+            lugar, domicilio = self._lugar_and_domicilio(self._cfdi(document))
+            self.assertEqual(lugar, "32472")
+            self.assertEqual(domicilio, self.partner_mx.zip)
+
     # -------------------------------------------------------------------------
     # Unit: branch selection / mixed-branch guard (no PAC needed)
     # -------------------------------------------------------------------------
 
     def _pay_results(self, *journals):
+        # Odoo 20 groups the reconciled invoices of a payment by node
+        # (regular payment / compensation), each with its 'payment_values'.
         return {
             "invoice_results": [
-                {"invoice": self._create_invoice(journal_id=journal.id)}
-                for journal in journals
+                {
+                    "is_compensation": False,
+                    "payment_values": [
+                        {"invoice": self._create_invoice_mx(journal_id=journal.id)}
+                        for journal in journals
+                    ],
+                }
             ]
         }
 
