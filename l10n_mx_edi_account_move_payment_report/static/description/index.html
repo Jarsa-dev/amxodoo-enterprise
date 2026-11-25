@@ -369,11 +369,25 @@ ul.auto-toc {
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !! source digest: sha256:02c49ac97d19d82f345f8d87e8d52fd53b52e19dbe21acd8ba2b39470b73411f
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! -->
-<p><a class="reference external image-reference" href="https://odoo-community.org/page/development-status"><img alt="Beta" src="https://img.shields.io/badge/maturity-Beta-yellow.png" /></a> <a class="reference external image-reference" href="http://www.gnu.org/licenses/lgpl-3.0-standalone.html"><img alt="License: LGPL-3" src="https://img.shields.io/badge/licence-LGPL--3-blue.png" /></a> <a class="reference external image-reference" href="https://github.com/OCA/l10n-mexico/tree/19.0/l10n_mx_edi_account_move_payment_report"><img alt="OCA/l10n-mexico" src="https://img.shields.io/badge/github-OCA%2Fl10n--mexico-lightgray.png?logo=github" /></a> <a class="reference external image-reference" href="https://translation.odoo-community.org/projects/l10n-mexico-19-0/l10n-mexico-19-0-l10n_mx_edi_account_move_payment_report"><img alt="Translate me on Weblate" src="https://img.shields.io/badge/weblate-Translate%20me-F47D42.png" /></a> <a class="reference external image-reference" href="https://runboat.odoo-community.org/builds?repo=OCA/l10n-mexico&amp;target_branch=19.0"><img alt="Try me on Runboat" src="https://img.shields.io/badge/runboat-Try%20me-875A7B.png" /></a></p>
-<p>This module adds a PDF report for the CFDI payment complement (REP) on
-the Mexican EDI documents, including the SAT QR code, digital stamps and
-the related invoices, and allows to print it or send it by email
-directly from the invoice form view.</p>
+<p><a class="reference external image-reference" href="https://odoo-community.org/page/development-status"><img alt="Beta" src="https://img.shields.io/badge/maturity-Beta-yellow.png" /></a> <a class="reference external image-reference" href="http://www.gnu.org/licenses/lgpl-3.0-standalone.html"><img alt="License: LGPL-3" src="https://img.shields.io/badge/license-LGPL--3-blue.png" /></a> <a class="reference external image-reference" href="https://github.com/amxodoo/enterprise/tree/20.0/l10n_mx_edi_account_move_payment_report"><img alt="amxodoo/enterprise" src="https://img.shields.io/badge/github-amxodoo%2Fenterprise-lightgray.png?logo=github" /></a></p>
+<p>This module completes the CFDI payment receipt that <tt class="docutils literal">l10n_mx_edi</tt>
+prints for payments and bank transactions:</p>
+<ul class="simple">
+<li>The payment receipt shows the company VAT next to the VAT of the CFDI
+when they differ, and the fiscal regime of the customer once the CFDI
+is stamped.</li>
+<li>The bank transaction receipt also shows the XML VAT, the payment
+method, the memo, the fiscal regime of the customer and the bank
+accounts of the CFDI payment node, and its PDF is named after the
+journal entry (<tt class="docutils literal">Payment Receipt - BNK1/2026/00001</tt>).</li>
+<li>The CFDI documents of an invoice get a <em>Send Payment Receipt</em> button
+that opens the email composer with the receipt: the payment receipt
+template of the payment or, for a bank transaction, a template that
+attaches the receipt and the CFDI XML.</li>
+<li>The <em>Print</em> button of the CFDI documents is also available for PUE
+payments.</li>
+<li>The bank reconciliation list has an optional <em>Fiscal Folio</em> column.</li>
+</ul>
 <p><strong>Table of contents</strong></p>
 <div class="contents local topic" id="contents">
 <ul class="simple">
@@ -390,21 +404,21 @@ directly from the invoice form view.</p>
 <div class="section" id="usage">
 <h1><a class="toc-backref" href="#toc-entry-1">Usage</a></h1>
 <ol class="arabic simple">
-<li>Go to an invoice with a signed payment complement (CFDI documents
-tab).</li>
-<li>Use the <em>Payment Receipt</em> button to print the payment receipt report.</li>
-<li>Use the <em>Send Payment Receipt</em> button to send it by email with the
-CFDI attachment.</li>
-<li>The <em>Fiscal Folio</em> column is also available in the bank
-reconciliation list view.</li>
+<li>Go to an invoice with a payment complement (CFDI tab).</li>
+<li>Use the <em>Print</em> button of the payment document to print the payment
+receipt (also for PUE payments).</li>
+<li>Use the <em>Send Payment Receipt</em> button to send it by email; the
+receipt of a bank transaction is sent with the CFDI XML attached.</li>
+<li>The <em>Fiscal Folio</em> column is available as an optional column in the
+bank reconciliation list view.</li>
 </ol>
 </div>
 <div class="section" id="bug-tracker">
 <h1><a class="toc-backref" href="#toc-entry-2">Bug Tracker</a></h1>
-<p>Bugs are tracked on <a class="reference external" href="https://github.com/OCA/l10n-mexico/issues">GitHub Issues</a>.
+<p>Bugs are tracked on <a class="reference external" href="https://github.com/amxodoo/enterprise/issues">GitHub Issues</a>.
 In case of trouble, please check there if your issue has already been reported.
 If you spotted it first, help us to smash it by providing a detailed and welcomed
-<a class="reference external" href="https://github.com/OCA/l10n-mexico/issues/new?body=module:%20l10n_mx_edi_account_move_payment_report%0Aversion:%2019.0%0A%0A**Steps%20to%20reproduce**%0A-%20...%0A%0A**Current%20behavior**%0A%0A**Expected%20behavior**">feedback</a>.</p>
+<a class="reference external" href="https://github.com/amxodoo/enterprise/issues/new?body=module:%20l10n_mx_edi_account_move_payment_report%0Aversion:%2020.0%0A%0A**Steps%20to%20reproduce**%0A-%20...%0A%0A**Current%20behavior**%0A%0A**Expected%20behavior**">feedback</a>.</p>
 <p>Do not contact contributors directly about support or help with technical issues.</p>
 </div>
 <div class="section" id="credits">
@@ -413,7 +427,7 @@ If you spotted it first, help us to smash it by providing a detailed and welcome
 <h2><a class="toc-backref" href="#toc-entry-4">Authors</a></h2>
 <ul class="simple">
 <li>Jarsa</li>
-<li>Odoo Mexican Association (AMOdoo)</li>
+<li>Asociacion Mexicana de Odoo (AMOdoo)</li>
 </ul>
 </div>
 <div class="section" id="contributors">
@@ -424,15 +438,8 @@ If you spotted it first, help us to smash it by providing a detailed and welcome
 </div>
 <div class="section" id="maintainers">
 <h2><a class="toc-backref" href="#toc-entry-6">Maintainers</a></h2>
-<p>This module is maintained by the OCA.</p>
-<a class="reference external image-reference" href="https://odoo-community.org">
-<img alt="Odoo Community Association" src="https://odoo-community.org/logo.png" />
-</a>
-<p>OCA, or the Odoo Community Association, is a nonprofit organization whose
-mission is to support the collaborative development of Odoo features and
-promote its widespread use.</p>
-<p>This module is part of the <a class="reference external" href="https://github.com/OCA/l10n-mexico/tree/19.0/l10n_mx_edi_account_move_payment_report">OCA/l10n-mexico</a> project on GitHub.</p>
-<p>You are welcome to contribute. To learn how please visit <a class="reference external" href="https://odoo-community.org/page/Contribute">https://odoo-community.org/page/Contribute</a>.</p>
+<p>This module is part of the <a class="reference external" href="https://github.com/amxodoo/enterprise/tree/20.0/l10n_mx_edi_account_move_payment_report">amxodoo/enterprise</a> project on GitHub.</p>
+<p>You are welcome to contribute.</p>
 </div>
 </div>
 </div>

@@ -3,17 +3,18 @@
 
 {
     "name": "Payment Receipt on Invoice",
-    "version": "19.0.1.0.0",
+    "version": "20.0.1.0.0",
     "category": "Report",
-    "author": "Jarsa, Odoo Mexican Association (AMOdoo)",
+    "author": "Jarsa, Asociacion Mexicana de Odoo (AMOdoo)",
     "website": "https://github.com/amxodoo/enterprise",
     "license": "LGPL-3",
     "depends": [
         "l10n_mx_edi",
     ],
     "data": [
-        "report/report_payment_receipt_invoice.xml",
-        "views/report_action.xml",
+        "report/report_payment_receipt_templates.xml",
+        "report/report_bank_transaction_receipt.xml",
+        "views/account_move_views.xml",
         "views/account_bank_statement_line_views.xml",
         "data/mail_template_data.xml",
     ],

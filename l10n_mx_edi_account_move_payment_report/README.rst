@@ -17,15 +17,28 @@ Payment Receipt on Invoice
     :target: http://www.gnu.org/licenses/lgpl-3.0-standalone.html
     :alt: License: LGPL-3
 .. |badge3| image:: https://img.shields.io/badge/github-amxodoo%2Fenterprise-lightgray.png?logo=github
-    :target: https://github.com/amxodoo/enterprise/tree/19.0/l10n_mx_edi_account_move_payment_report
+    :target: https://github.com/amxodoo/enterprise/tree/20.0/l10n_mx_edi_account_move_payment_report
     :alt: amxodoo/enterprise
 
 |badge1| |badge2| |badge3|
 
-This module adds a PDF report for the CFDI payment complement (REP) on
-the Mexican EDI documents, including the SAT QR code, digital stamps and
-the related invoices, and allows to print it or send it by email
-directly from the invoice form view.
+This module completes the CFDI payment receipt that ``l10n_mx_edi``
+prints for payments and bank transactions:
+
+- The payment receipt shows the company VAT next to the VAT of the CFDI
+  when they differ, and the fiscal regime of the customer once the CFDI
+  is stamped.
+- The bank transaction receipt also shows the XML VAT, the payment
+  method, the memo, the fiscal regime of the customer and the bank
+  accounts of the CFDI payment node, and its PDF is named after the
+  journal entry (``Payment Receipt - BNK1/2026/00001``).
+- The CFDI documents of an invoice get a *Send Payment Receipt* button
+  that opens the email composer with the receipt: the payment receipt
+  template of the payment or, for a bank transaction, a template that
+  attaches the receipt and the CFDI XML.
+- The *Print* button of the CFDI documents is also available for PUE
+  payments.
+- The bank reconciliation list has an optional *Fiscal Folio* column.
 
 **Table of contents**
 
@@ -35,13 +48,13 @@ directly from the invoice form view.
 Usage
 =====
 
-1. Go to an invoice with a signed payment complement (CFDI documents
-   tab).
-2. Use the *Payment Receipt* button to print the payment receipt report.
-3. Use the *Send Payment Receipt* button to send it by email with the
-   CFDI attachment.
-4. The *Fiscal Folio* column is also available in the bank
-   reconciliation list view.
+1. Go to an invoice with a payment complement (CFDI tab).
+2. Use the *Print* button of the payment document to print the payment
+   receipt (also for PUE payments).
+3. Use the *Send Payment Receipt* button to send it by email; the
+   receipt of a bank transaction is sent with the CFDI XML attached.
+4. The *Fiscal Folio* column is available as an optional column in the
+   bank reconciliation list view.
 
 Bug Tracker
 ===========
@@ -49,7 +62,7 @@ Bug Tracker
 Bugs are tracked on `GitHub Issues <https://github.com/amxodoo/enterprise/issues>`_.
 In case of trouble, please check there if your issue has already been reported.
 If you spotted it first, help us to smash it by providing a detailed and welcomed
-`feedback <https://github.com/amxodoo/enterprise/issues/new?body=module:%20l10n_mx_edi_account_move_payment_report%0Aversion:%2019.0%0A%0A**Steps%20to%20reproduce**%0A-%20...%0A%0A**Current%20behavior**%0A%0A**Expected%20behavior**>`_.
+`feedback <https://github.com/amxodoo/enterprise/issues/new?body=module:%20l10n_mx_edi_account_move_payment_report%0Aversion:%2020.0%0A%0A**Steps%20to%20reproduce**%0A-%20...%0A%0A**Current%20behavior**%0A%0A**Expected%20behavior**>`_.
 
 Do not contact contributors directly about support or help with technical issues.
 
@@ -60,7 +73,7 @@ Authors
 -------
 
 * Jarsa
-* Odoo Mexican Association (AMOdoo)
+* Asociacion Mexicana de Odoo (AMOdoo)
 
 Contributors
 ------------
@@ -70,6 +83,6 @@ Contributors
 Maintainers
 -----------
 
-This module is part of the `amxodoo/enterprise <https://github.com/amxodoo/enterprise/tree/19.0/l10n_mx_edi_account_move_payment_report>`_ project on GitHub.
+This module is part of the `amxodoo/enterprise <https://github.com/amxodoo/enterprise/tree/20.0/l10n_mx_edi_account_move_payment_report>`_ project on GitHub.
 
 You are welcome to contribute.

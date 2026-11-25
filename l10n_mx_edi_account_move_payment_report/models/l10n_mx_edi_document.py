@@ -1,88 +1,49 @@
-from odoo import models
+from odoo import api, models
 
 
 class L10nMxEdiDocument(models.Model):
-    _name = "l10n_mx_edi.document"
-    _inherit = ["l10n_mx_edi.document", "mail.thread"]
+    _inherit = "l10n_mx_edi.document"
 
-    def action_print_payment(self):
-        return (
-            self.env.ref(
-                "l10n_mx_edi_account_move_payment_report.report_payment_receipt_invoice"
-            )
-            .sudo()
-            .report_action(self)
-        )
+    @api.depends("state")
+    def _compute_print_button_needed(self):
+        """Also print the payment receipt of PUE payments."""
+        res = super()._compute_print_button_needed()
+        self.filtered(
+            lambda doc: doc.state == "payment_sent_pue"
+        ).print_button_needed = True
+        return res
 
     def action_send_payment_email(self):
+        """Send by email the payment receipt printed by
+        action_download_payment_receipt."""
         self.ensure_one()
-        template = self.env.ref(
-            "l10n_mx_edi_account_move_payment_report.mail_template_data_payment_receipt",
-            raise_if_not_found=False,
+        payment = self.move_id.origin_payment_id
+        context = {"default_composition_mode": "comment"}
+        if payment:
+            record = payment
+            template = self.env.ref(
+                "account.mail_template_data_payment_receipt", raise_if_not_found=False
+            )
+            context["mail_post_autofollow"] = True
+        else:
+            record = self.move_id
+            template = self.env.ref(
+                "l10n_mx_edi_account_move_payment_report."
+                "mail_template_data_bank_transaction_receipt",
+                raise_if_not_found=False,
+            )
+        context.update(
+            {
+                "default_model": record._name,
+                "default_res_ids": record.ids,
+                "default_template_id": template.id if template else False,
+            }
         )
         return {
-            "name": self.env._("Send"),
+            "name": self.env._("Send Payment Receipt"),
             "type": "ir.actions.act_window",
             "view_mode": "form",
             "res_model": "mail.compose.message",
             "target": "new",
-            "context": {
-                "default_res_ids": self.ids,
-                "default_template_id": template and template.id or False,
-            },
+            "context": context,
         }
-
-    def _l10n_mx_edi_get_extra_payment_report_values(self):
-        """Collect extra values used to render the payment PDF report.
-
-        :return: A python dictionary.
-        """
-        self.ensure_one()
-        cfdi_infos = self._l10n_mx_edi_get_extra_common_report_values(
-            self.attachment_id
-        )
-        if not cfdi_infos:
-            return cfdi_infos
-
-        node = cfdi_infos["cfdi_node"].xpath("//*[local-name()='Pago']")[0]
-        payment_info = cfdi_infos["payment_info"] = {}
-        payment_info["from_account_vat"] = node.get("RfcEmisorCtaOrd")
-        payment_info["from_account_name"] = node.get("NomBancoOrdExt")
-        payment_info["from_account_number"] = node.get("CtaOrdenante")
-        payment_info["to_account_vat"] = node.get("RfcEmisorCtaBen")
-        payment_info["to_account_number"] = node.get("CtaBeneficiario")
-
-        related_invoices = cfdi_infos["invoices"] = []
-        uuids = []
-        for node in cfdi_infos["cfdi_node"].xpath(
-            "//*[local-name()='DoctoRelacionado']"
-        ):
-            uuids.append(node.attrib["IdDocumento"])
-            related_invoices.append(
-                {
-                    "uuid": node.attrib["IdDocumento"],
-                    "partiality": node.attrib["NumParcialidad"],
-                    "previous_balance": float(node.attrib["ImpSaldoAnt"]),
-                    "amount_paid": float(node.attrib["ImpPagado"]),
-                    "balance": float(node.attrib["ImpSaldoInsoluto"]),
-                    "currency": node.attrib["MonedaDR"],
-                }
-            )
-        invoices = self.env["account.move"].search(
-            [("l10n_mx_edi_cfdi_uuid", "in", uuids)]
-        )
-        invoices_map = {x.l10n_mx_edi_cfdi_uuid: x for x in invoices}
-        for invoice_values in related_invoices:
-            invoice_values["invoice"] = invoices_map.get(
-                invoice_values["uuid"], self.env["account.move"]
-            )
-
-        return cfdi_infos
-
-    def _process_attachments_for_template_post(self, mail_template):
-        """Add CFDI attachment to template."""
-        result = super()._process_attachments_for_template_post(mail_template)
-        for rec in self.filtered("attachment_id"):
-            rec_result = result.setdefault(rec.id, {})
-            rec_result.setdefault("attachment_ids", []).append(rec.attachment_id.id)
-        return result
